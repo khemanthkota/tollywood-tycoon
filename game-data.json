@@ -1,0 +1,1412 @@
+{
+  "schemaVersion": 1,
+  "revision": 1,
+  "catalog": {
+    "d": [
+      [
+        "S. S. Rajamouli",
+        99,
+        "epic action mass"
+      ],
+      [
+        "Sukumar",
+        94,
+        "action content mass"
+      ],
+      [
+        "Trivikram Srinivas",
+        92,
+        "family comedy mass"
+      ],
+      [
+        "Koratala Siva",
+        86,
+        "action mass drama"
+      ],
+      [
+        "Sandeep Reddy Vanga",
+        94,
+        "action drama intense"
+      ],
+      [
+        "Nag Ashwin",
+        91,
+        "epic content drama"
+      ],
+      [
+        "Anil Ravipudi",
+        86,
+        "comedy family mass"
+      ],
+      [
+        "Vamshi Paidipally",
+        83,
+        "family drama action"
+      ],
+      [
+        "Boyapati Srinu",
+        85,
+        "mass action drama"
+      ],
+      [
+        "Venky Atluri",
+        88,
+        "romance drama content"
+      ],
+      [
+        "Srikanth Odela",
+        89,
+        "mass action intense"
+      ],
+      [
+        "Vivek Athreya",
+        87,
+        "content comedy romance"
+      ],
+      [
+        "Prashanth Neel",
+        94,
+        "action mass intense"
+      ],
+      [
+        "Shankar",
+        88,
+        "epic action drama"
+      ],
+      [
+        "Shekhar Kammula",
+        86,
+        "content romance family"
+      ],
+      [
+        "Puri Jagannadh",
+        82,
+        "mass action romance"
+      ],
+      [
+        "Gautham Tinnanuri",
+        87,
+        "content drama action"
+      ],
+      [
+        "Bobby Kolli",
+        85,
+        "mass action comedy"
+      ],
+      [
+        "Harish Shankar",
+        82,
+        "mass comedy action"
+      ],
+      [
+        "Hanu Raghavapudi",
+        88,
+        "romance drama epic"
+      ],
+      [
+        "Chandoo Mondeti",
+        86,
+        "epic content action"
+      ],
+      [
+        "Maruthi",
+        82,
+        "comedy family romance"
+      ],
+      [
+        "Tharun Bhascker",
+        86,
+        "content comedy romance"
+      ],
+      [
+        "Sailesh Kolanu",
+        83,
+        "thriller action drama"
+      ],
+      [
+        "Sandeep Raj",
+        82,
+        "content romance drama"
+      ],
+      [
+        "K. Raghavendra Rao",
+        90,
+        "family mass drama"
+      ],
+      [
+        "K. Viswanath",
+        89,
+        "content drama family"
+      ],
+      [
+        "Krish Jagarlamudi",
+        85,
+        "epic drama action"
+      ],
+      [
+        "Surender Reddy",
+        84,
+        "action mass thriller"
+      ],
+      [
+        "Gopichand Malineni",
+        83,
+        "mass action drama"
+      ],
+      [
+        "Parasuram",
+        81,
+        "romance family comedy"
+      ],
+      [
+        "Teja",
+        78,
+        "romance drama content"
+      ],
+      [
+        "Sampath Nandi",
+        79,
+        "mass action drama"
+      ],
+      [
+        "Ajay Bhupathi",
+        80,
+        "intense romance drama"
+      ],
+      [
+        "Sagar K. Chandra",
+        79,
+        "action drama content"
+      ],
+      [
+        "Prasanth Varma",
+        86,
+        "epic content action"
+      ],
+      [
+        "Sashi Kiran Tikka",
+        82,
+        "thriller action content"
+      ],
+      [
+        "Srinivas Avasarala",
+        79,
+        "content comedy romance"
+      ],
+      [
+        "Kalyan Krishna Kurasala",
+        79,
+        "family romance comedy"
+      ],
+      [
+        "Merlapaka Gandhi",
+        78,
+        "comedy romance content"
+      ],
+      [
+        "Shiva Nirvana",
+        81,
+        "romance drama family"
+      ],
+      [
+        "Nandini Reddy",
+        80,
+        "romance comedy content"
+      ],
+      [
+        "Mohana Krishna Indraganti",
+        81,
+        "content romance drama"
+      ],
+      [
+        "Kishore Tirumala",
+        79,
+        "romance family drama"
+      ],
+      [
+        "Ramesh Varma",
+        77,
+        "action thriller mass"
+      ],
+      [
+        "Santosh Srinivas",
+        76,
+        "mass action comedy"
+      ],
+      [
+        "V. V. Vinayak",
+        86,
+        "mass action comedy"
+      ],
+      [
+        "Deva Katta",
+        81,
+        "content drama action"
+      ],
+      [
+        "S. V. Krishna Reddy",
+        83,
+        "family comedy drama"
+      ],
+      [
+        "Vikram K. Kumar",
+        84,
+        "thriller drama family"
+      ]
+    ],
+    "h": [
+      [
+        "Prabhas",
+        97,
+        "epic action mass"
+      ],
+      [
+        "Allu Arjun",
+        96,
+        "mass action comedy"
+      ],
+      [
+        "Ram Charan",
+        96,
+        "action mass drama"
+      ],
+      [
+        "Jr. NTR",
+        97,
+        "mass action drama"
+      ],
+      [
+        "Mahesh Babu",
+        95,
+        "action family mass"
+      ],
+      [
+        "Pawan Kalyan",
+        95,
+        "mass action comedy"
+      ],
+      [
+        "Nani",
+        90,
+        "content family romance"
+      ],
+      [
+        "Vijay Deverakonda",
+        87,
+        "romance intense drama"
+      ],
+      [
+        "Ram Pothineni",
+        84,
+        "mass action romance"
+      ],
+      [
+        "Naga Chaitanya",
+        83,
+        "romance family drama"
+      ],
+      [
+        "Sai Dharam Tej",
+        82,
+        "mass family action"
+      ],
+      [
+        "Adivi Sesh",
+        88,
+        "thriller content action"
+      ],
+      [
+        "Naveen Polishetty",
+        87,
+        "comedy content romance"
+      ],
+      [
+        "Siddhu Jonnalagadda",
+        86,
+        "comedy romance content"
+      ],
+      [
+        "Teja Sajja",
+        88,
+        "epic action content"
+      ],
+      [
+        "Chiranjeevi",
+        95,
+        "mass action family"
+      ],
+      [
+        "Balakrishna",
+        90,
+        "mass action drama"
+      ],
+      [
+        "Venkatesh",
+        88,
+        "family comedy drama"
+      ],
+      [
+        "Ravi Teja",
+        85,
+        "mass comedy action"
+      ],
+      [
+        "Sharwanand",
+        82,
+        "family romance action"
+      ],
+      [
+        "Varun Tej",
+        82,
+        "action romance drama"
+      ],
+      [
+        "Nikhil Siddhartha",
+        84,
+        "thriller epic content"
+      ],
+      [
+        "Sree Vishnu",
+        82,
+        "comedy content family"
+      ],
+      [
+        "Kalyan Ram",
+        82,
+        "action drama mass"
+      ],
+      [
+        "Vishwak Sen",
+        83,
+        "intense action content"
+      ],
+      [
+        "Nagarjuna Akkineni",
+        88,
+        "family romance action"
+      ],
+      [
+        "Nithiin",
+        81,
+        "romance action comedy"
+      ],
+      [
+        "Gopichand",
+        80,
+        "mass action drama"
+      ],
+      [
+        "Allari Naresh",
+        78,
+        "comedy content family"
+      ],
+      [
+        "Bellamkonda Sreenivas",
+        76,
+        "mass action romance"
+      ],
+      [
+        "Akhil Akkineni",
+        76,
+        "action romance family"
+      ],
+      [
+        "Sumanth",
+        76,
+        "romance drama family"
+      ],
+      [
+        "Sudheer Babu",
+        79,
+        "action romance thriller"
+      ],
+      [
+        "Satyadev Kancharana",
+        78,
+        "content thriller drama"
+      ],
+      [
+        "Anand Deverakonda",
+        77,
+        "content romance comedy"
+      ],
+      [
+        "Kiran Abbavaram",
+        76,
+        "romance action drama"
+      ],
+      [
+        "Kartikeya Gummakonda",
+        77,
+        "action romance thriller"
+      ],
+      [
+        "Raj Tarun",
+        76,
+        "romance comedy family"
+      ],
+      [
+        "Sushanth",
+        76,
+        "romance family action"
+      ],
+      [
+        "Sundeep Kishan",
+        79,
+        "action thriller romance"
+      ],
+      [
+        "Rana Daggubati",
+        85,
+        "epic action drama"
+      ],
+      [
+        "Dulquer Salmaan",
+        84,
+        "romance drama content"
+      ],
+      [
+        "Dhanush",
+        86,
+        "action romance drama"
+      ],
+      [
+        "Suhas",
+        77,
+        "content comedy drama"
+      ],
+      [
+        "Santosh Shobhan",
+        75,
+        "romance comedy family"
+      ],
+      [
+        "Roshan Meka",
+        76,
+        "romance drama action"
+      ],
+      [
+        "Ashok Galla",
+        74,
+        "action romance comedy"
+      ],
+      [
+        "Abijeet Duddala",
+        74,
+        "content romance drama"
+      ],
+      [
+        "Sivakarthikeyan",
+        83,
+        "comedy family action"
+      ],
+      [
+        "Fahadh Faasil",
+        84,
+        "content thriller action"
+      ]
+    ],
+    "f": [
+      [
+        "Samantha Ruth Prabhu",
+        92,
+        "romance drama family"
+      ],
+      [
+        "Rashmika Mandanna",
+        94,
+        "mass romance family"
+      ],
+      [
+        "Sai Pallavi",
+        94,
+        "content romance drama"
+      ],
+      [
+        "Pooja Hegde",
+        87,
+        "mass romance comedy"
+      ],
+      [
+        "Sreeleela",
+        88,
+        "mass romance comedy"
+      ],
+      [
+        "Mrunal Thakur",
+        91,
+        "romance drama family"
+      ],
+      [
+        "Keerthy Suresh",
+        91,
+        "content drama family"
+      ],
+      [
+        "Anushka Shetty",
+        93,
+        "epic drama action"
+      ],
+      [
+        "Meenakshi Chaudhary",
+        86,
+        "romance family comedy"
+      ],
+      [
+        "Krithi Shetty",
+        83,
+        "romance family comedy"
+      ],
+      [
+        "Raashii Khanna",
+        85,
+        "romance comedy family"
+      ],
+      [
+        "Priyanka Mohan",
+        85,
+        "family romance action"
+      ],
+      [
+        "Nabha Natesh",
+        80,
+        "mass romance comedy"
+      ],
+      [
+        "Anupama Parameswaran",
+        87,
+        "romance family content"
+      ],
+      [
+        "Samyuktha Menon",
+        86,
+        "drama action romance"
+      ],
+      [
+        "Kajal Aggarwal",
+        89,
+        "mass romance family"
+      ],
+      [
+        "Tamannaah Bhatia",
+        89,
+        "mass comedy romance"
+      ],
+      [
+        "Nayanthara",
+        92,
+        "drama action family"
+      ],
+      [
+        "Trisha Krishnan",
+        91,
+        "romance drama family"
+      ],
+      [
+        "Shruti Haasan",
+        87,
+        "mass action romance"
+      ],
+      [
+        "Kiara Advani",
+        88,
+        "romance family mass"
+      ],
+      [
+        "Nivetha Thomas",
+        86,
+        "content drama family"
+      ],
+      [
+        "Ritu Varma",
+        85,
+        "romance content drama"
+      ],
+      [
+        "Malavika Mohanan",
+        83,
+        "action romance drama"
+      ],
+      [
+        "Aishwarya Rajesh",
+        85,
+        "content drama family"
+      ],
+      [
+        "Nithya Menen",
+        88,
+        "content romance drama"
+      ],
+      [
+        "Regina Cassandra",
+        81,
+        "thriller romance drama"
+      ],
+      [
+        "Lavanya Tripathi",
+        81,
+        "romance family drama"
+      ],
+      [
+        "Aditi Rao Hydari",
+        84,
+        "romance drama epic"
+      ],
+      [
+        "Eesha Rebba",
+        78,
+        "content romance drama"
+      ],
+      [
+        "Payal Rajput",
+        78,
+        "romance action drama"
+      ],
+      [
+        "Hebah Patel",
+        77,
+        "romance comedy family"
+      ],
+      [
+        "Pragya Jaiswal",
+        81,
+        "mass romance action"
+      ],
+      [
+        "Dimple Hayathi",
+        76,
+        "mass action romance"
+      ],
+      [
+        "Ruhani Sharma",
+        79,
+        "content thriller romance"
+      ],
+      [
+        "Rukmini Vasanth",
+        82,
+        "romance drama content"
+      ],
+      [
+        "Faria Abdullah",
+        79,
+        "comedy romance family"
+      ],
+      [
+        "Ivana",
+        77,
+        "romance family comedy"
+      ],
+      [
+        "Ashika Ranganath",
+        78,
+        "romance family comedy"
+      ],
+      [
+        "Vaishnavi Chaitanya",
+        78,
+        "romance drama content"
+      ],
+      [
+        "Sakshi Vaidya",
+        75,
+        "romance action drama"
+      ],
+      [
+        "Bhagyashri Borse",
+        77,
+        "romance mass drama"
+      ],
+      [
+        "Mamitha Baiju",
+        80,
+        "romance comedy content"
+      ],
+      [
+        "Anjali",
+        83,
+        "content drama family"
+      ],
+      [
+        "Amala Paul",
+        81,
+        "romance drama action"
+      ],
+      [
+        "Catherine Tresa",
+        79,
+        "mass romance action"
+      ],
+      [
+        "Rakul Preet Singh",
+        85,
+        "romance action comedy"
+      ],
+      [
+        "Ileana D’Cruz",
+        86,
+        "romance comedy mass"
+      ],
+      [
+        "Asin Thottumkal",
+        86,
+        "romance drama mass"
+      ],
+      [
+        "Genelia D’Souza",
+        86,
+        "romance comedy family"
+      ]
+    ]
+  },
+  "notableFilms": {
+    "d": {
+      "S. S. Rajamouli": [
+        "Baahubali",
+        "RRR"
+      ],
+      "Sukumar": [
+        "Pushpa",
+        "Rangasthalam"
+      ],
+      "Trivikram Srinivas": [
+        "Ala Vaikunthapurramuloo",
+        "Athadu"
+      ],
+      "Koratala Siva": [
+        "Srimanthudu",
+        "Janatha Garage"
+      ],
+      "Sandeep Reddy Vanga": [
+        "Arjun Reddy",
+        "Animal"
+      ],
+      "Nag Ashwin": [
+        "Mahanati",
+        "Kalki 2898 AD"
+      ],
+      "Anil Ravipudi": [
+        "F2",
+        "Sarileru Neekevvaru"
+      ],
+      "Vamshi Paidipally": [
+        "Maharshi",
+        "Oopiri"
+      ],
+      "Boyapati Srinu": [
+        "Legend",
+        "Akhanda"
+      ],
+      "Venky Atluri": [
+        "Sir",
+        "Lucky Baskhar"
+      ],
+      "Srikanth Odela": [
+        "Dasara"
+      ],
+      "Vivek Athreya": [
+        "Brochevarevarura",
+        "Saripodhaa Sanivaaram"
+      ],
+      "Prashanth Neel": [
+        "KGF",
+        "Salaar"
+      ],
+      "Shankar": [
+        "Enthiran",
+        "Indian"
+      ],
+      "Shekhar Kammula": [
+        "Happy Days",
+        "Fidaa"
+      ],
+      "Puri Jagannadh": [
+        "Pokiri",
+        "Temper"
+      ],
+      "Gautham Tinnanuri": [
+        "Jersey"
+      ],
+      "Bobby Kolli": [
+        "Waltair Veerayya",
+        "Jai Lava Kusa"
+      ],
+      "Harish Shankar": [
+        "Gabbar Singh",
+        "Mirapakay"
+      ],
+      "Hanu Raghavapudi": [
+        "Sita Ramam"
+      ],
+      "Chandoo Mondeti": [
+        "Karthikeya 2",
+        "Thandel"
+      ],
+      "Maruthi": [
+        "Bhale Bhale Magadivoy",
+        "Prati Roju Pandage"
+      ],
+      "Tharun Bhascker": [
+        "Pelli Choopulu",
+        "Ee Nagaraniki Emaindi"
+      ],
+      "Sailesh Kolanu": [
+        "HIT",
+        "HIT: The Second Case"
+      ],
+      "Sandeep Raj": [
+        "Colour Photo"
+      ],
+      "K. Raghavendra Rao": [
+        "Jagadeka Veerudu Athiloka Sundari",
+        "Annamayya"
+      ],
+      "K. Viswanath": [
+        "Sankarabharanam",
+        "Sagara Sangamam"
+      ],
+      "Krish Jagarlamudi": [
+        "Kanche",
+        "Gautamiputra Satakarni"
+      ],
+      "Surender Reddy": [
+        "Race Gurram",
+        "Dhruva"
+      ],
+      "Gopichand Malineni": [
+        "Krack",
+        "Veera Simha Reddy"
+      ],
+      "Parasuram": [
+        "Geetha Govindam",
+        "Sarkaru Vaari Paata"
+      ],
+      "Teja": [
+        "Nuvvu Nenu",
+        "Jayam"
+      ],
+      "Sampath Nandi": [
+        "Racha",
+        "Bengal Tiger"
+      ],
+      "Ajay Bhupathi": [
+        "RX 100",
+        "Maha Samudram"
+      ],
+      "Sagar K. Chandra": [
+        "Appatlo Okadundevadu",
+        "Bheemla Nayak"
+      ],
+      "Prasanth Varma": [
+        "Awe",
+        "Hanu-Man"
+      ],
+      "Sashi Kiran Tikka": [
+        "Goodachari",
+        "Major"
+      ],
+      "Srinivas Avasarala": [
+        "Oohalu Gusagusalade",
+        "Jyo Achyutananda"
+      ],
+      "Kalyan Krishna Kurasala": [
+        "Soggade Chinni Nayana",
+        "Rarandoi Veduka Chudham"
+      ],
+      "Merlapaka Gandhi": [
+        "Venkatadri Express",
+        "Express Raja"
+      ],
+      "Shiva Nirvana": [
+        "Ninnu Kori",
+        "Majili"
+      ],
+      "Nandini Reddy": [
+        "Ala Modalaindi",
+        "Oh! Baby"
+      ],
+      "Mohana Krishna Indraganti": [
+        "Ashta Chamma",
+        "Sammohanam"
+      ],
+      "Kishore Tirumala": [
+        "Nenu Sailaja",
+        "Chitralahari"
+      ],
+      "Ramesh Varma": [
+        "Rakshasudu",
+        "Khiladi"
+      ],
+      "Santosh Srinivas": [
+        "Kandireega",
+        "Rabhasa"
+      ],
+      "V. V. Vinayak": [
+        "Aadi",
+        "Khaidi No. 150"
+      ],
+      "Deva Katta": [
+        "Prasthanam",
+        "Republic"
+      ],
+      "S. V. Krishna Reddy": [
+        "Mayalodu",
+        "Yamaleela"
+      ],
+      "Vikram K. Kumar": [
+        "Manam",
+        "24"
+      ]
+    },
+    "h": {
+      "Prabhas": [
+        "Baahubali",
+        "Salaar"
+      ],
+      "Allu Arjun": [
+        "Pushpa",
+        "Ala Vaikunthapurramuloo"
+      ],
+      "Ram Charan": [
+        "RRR",
+        "Rangasthalam"
+      ],
+      "Jr. NTR": [
+        "RRR",
+        "Janatha Garage"
+      ],
+      "Mahesh Babu": [
+        "Srimanthudu",
+        "Bharat Ane Nenu"
+      ],
+      "Pawan Kalyan": [
+        "Gabbar Singh",
+        "Attarintiki Daredi"
+      ],
+      "Nani": [
+        "Jersey",
+        "Dasara"
+      ],
+      "Vijay Deverakonda": [
+        "Arjun Reddy",
+        "Geetha Govindam"
+      ],
+      "Ram Pothineni": [
+        "iSmart Shankar",
+        "Ready"
+      ],
+      "Naga Chaitanya": [
+        "Ye Maaya Chesave",
+        "Love Story"
+      ],
+      "Sai Dharam Tej": [
+        "Virupaksha",
+        "Chitralahari"
+      ],
+      "Adivi Sesh": [
+        "Goodachari",
+        "Major"
+      ],
+      "Naveen Polishetty": [
+        "Jathi Ratnalu",
+        "Miss Shetty Mr Polishetty"
+      ],
+      "Siddhu Jonnalagadda": [
+        "DJ Tillu",
+        "Tillu Square"
+      ],
+      "Teja Sajja": [
+        "Hanu-Man",
+        "Zombie Reddy"
+      ],
+      "Chiranjeevi": [
+        "Indra",
+        "Waltair Veerayya"
+      ],
+      "Balakrishna": [
+        "Akhanda",
+        "Bhagavanth Kesari"
+      ],
+      "Venkatesh": [
+        "F2",
+        "Drushyam"
+      ],
+      "Ravi Teja": [
+        "Krack",
+        "Dhamaka"
+      ],
+      "Sharwanand": [
+        "Run Raja Run",
+        "Shatamanam Bhavati"
+      ],
+      "Varun Tej": [
+        "Fidaa",
+        "Gaddalakonda Ganesh"
+      ],
+      "Nikhil Siddhartha": [
+        "Karthikeya 2",
+        "Ekkadiki Pothavu Chinnavada"
+      ],
+      "Sree Vishnu": [
+        "Samajavaragamana",
+        "Raja Raja Chora"
+      ],
+      "Kalyan Ram": [
+        "Bimbisara",
+        "Pataas"
+      ],
+      "Vishwak Sen": [
+        "HIT",
+        "Falaknuma Das"
+      ],
+      "Nagarjuna Akkineni": [
+        "Manmadhudu",
+        "Soggade Chinni Nayana"
+      ],
+      "Nithiin": [
+        "A Aa",
+        "Bheeshma"
+      ],
+      "Gopichand": [
+        "Loukyam",
+        "Sahasam"
+      ],
+      "Allari Naresh": [
+        "Sudigadu",
+        "Naandhi"
+      ],
+      "Bellamkonda Sreenivas": [
+        "Jaya Janaki Nayaka",
+        "Rakshasudu"
+      ],
+      "Akhil Akkineni": [
+        "Hello",
+        "Most Eligible Bachelor"
+      ],
+      "Sumanth": [
+        "Satyam",
+        "Malli Raava"
+      ],
+      "Sudheer Babu": [
+        "Sammohanam",
+        "Hunt"
+      ],
+      "Satyadev Kancharana": [
+        "Uma Maheswara Ugra Roopasya",
+        "Godse"
+      ],
+      "Anand Deverakonda": [
+        "Baby",
+        "Middle Class Melodies"
+      ],
+      "Kiran Abbavaram": [
+        "SR Kalyanamandapam",
+        "KA"
+      ],
+      "Kartikeya Gummakonda": [
+        "RX 100",
+        "Valimai"
+      ],
+      "Raj Tarun": [
+        "Uyyala Jampala",
+        "Cinema Choopistha Mava"
+      ],
+      "Sushanth": [
+        "Chi La Sow",
+        "Ala Vaikunthapurramuloo"
+      ],
+      "Sundeep Kishan": [
+        "Venkatadri Express",
+        "Ooru Peru Bhairavakona"
+      ],
+      "Rana Daggubati": [
+        "Baahubali",
+        "Ghazi"
+      ],
+      "Dulquer Salmaan": [
+        "Sita Ramam",
+        "Lucky Baskhar"
+      ],
+      "Dhanush": [
+        "Sir",
+        "Raayan"
+      ],
+      "Suhas": [
+        "Colour Photo",
+        "Ambajipeta Marriage Band"
+      ],
+      "Santosh Shobhan": [
+        "Ek Mini Katha",
+        "Manchi Rojulochaie"
+      ],
+      "Roshan Meka": [
+        "Pelli SandaD",
+        "Champion"
+      ],
+      "Ashok Galla": [
+        "Hero",
+        "Devaki Nandana Vasudeva"
+      ],
+      "Abijeet Duddala": [
+        "Life Is Beautiful",
+        "Mirchi Lanti Kurradu"
+      ],
+      "Sivakarthikeyan": [
+        "Doctor",
+        "Amaran"
+      ],
+      "Fahadh Faasil": [
+        "Pushpa",
+        "Aavesham"
+      ]
+    },
+    "f": {
+      "Samantha Ruth Prabhu": [
+        "Eega",
+        "Rangasthalam"
+      ],
+      "Rashmika Mandanna": [
+        "Pushpa",
+        "Animal"
+      ],
+      "Sai Pallavi": [
+        "Fidaa",
+        "Love Story"
+      ],
+      "Pooja Hegde": [
+        "Ala Vaikunthapurramuloo",
+        "Aravinda Sametha"
+      ],
+      "Sreeleela": [
+        "Dhamaka",
+        "Bhagavanth Kesari"
+      ],
+      "Mrunal Thakur": [
+        "Sita Ramam",
+        "Hi Nanna"
+      ],
+      "Keerthy Suresh": [
+        "Mahanati",
+        "Dasara"
+      ],
+      "Anushka Shetty": [
+        "Baahubali",
+        "Arundhati"
+      ],
+      "Meenakshi Chaudhary": [
+        "Lucky Baskhar",
+        "Sankranthiki Vasthunam"
+      ],
+      "Krithi Shetty": [
+        "Uppena",
+        "Shyam Singha Roy"
+      ],
+      "Raashii Khanna": [
+        "Tholi Prema",
+        "Prati Roju Pandage"
+      ],
+      "Priyanka Mohan": [
+        "Doctor",
+        "Gang Leader"
+      ],
+      "Nabha Natesh": [
+        "iSmart Shankar",
+        "Disco Raja"
+      ],
+      "Anupama Parameswaran": [
+        "Premam",
+        "Karthikeya 2"
+      ],
+      "Samyuktha Menon": [
+        "Virupaksha",
+        "Bheemla Nayak"
+      ],
+      "Kajal Aggarwal": [
+        "Magadheera",
+        "Thuppakki"
+      ],
+      "Tamannaah Bhatia": [
+        "Baahubali",
+        "F2"
+      ],
+      "Nayanthara": [
+        "Aramm",
+        "Jawan"
+      ],
+      "Trisha Krishnan": [
+        "96",
+        "Ponniyin Selvan"
+      ],
+      "Shruti Haasan": [
+        "Gabbar Singh",
+        "Salaar"
+      ],
+      "Kiara Advani": [
+        "Bharat Ane Nenu",
+        "Kabir Singh"
+      ],
+      "Nivetha Thomas": [
+        "118",
+        "Brochevarevarura"
+      ],
+      "Ritu Varma": [
+        "Pelli Choopulu",
+        "Kanulu Kanulanu Dochayante"
+      ],
+      "Malavika Mohanan": [
+        "Master",
+        "Thangalaan"
+      ],
+      "Aishwarya Rajesh": [
+        "Kanaa",
+        "Ka Pae Ranasingam"
+      ],
+      "Nithya Menen": [
+        "Ishq",
+        "Thiruchitrambalam"
+      ],
+      "Regina Cassandra": [
+        "Subramanyam for Sale",
+        "Evaru"
+      ],
+      "Lavanya Tripathi": [
+        "Bhale Bhale Magadivoy",
+        "Soggade Chinni Nayana"
+      ],
+      "Aditi Rao Hydari": [
+        "Sammohanam",
+        "Sufiyum Sujatayum"
+      ],
+      "Eesha Rebba": [
+        "Awe",
+        "Aravinda Sametha"
+      ],
+      "Payal Rajput": [
+        "RX 100",
+        "Mangalavaaram"
+      ],
+      "Hebah Patel": [
+        "Kumari 21F",
+        "Eedo Rakam Aado Rakam"
+      ],
+      "Pragya Jaiswal": [
+        "Kanche",
+        "Akhanda"
+      ],
+      "Dimple Hayathi": [
+        "Khiladi",
+        "Ramabanam"
+      ],
+      "Ruhani Sharma": [
+        "Chi La Sow",
+        "HIT"
+      ],
+      "Rukmini Vasanth": [
+        "Sapta Sagaradaache Ello",
+        "Bagheera"
+      ],
+      "Faria Abdullah": [
+        "Jathi Ratnalu",
+        "Aa Okkati Adakku"
+      ],
+      "Ivana": [
+        "Love Today",
+        "Kalvan"
+      ],
+      "Ashika Ranganath": [
+        "Amigos",
+        "Naa Saami Ranga"
+      ],
+      "Vaishnavi Chaitanya": [
+        "Baby",
+        "Love Me"
+      ],
+      "Sakshi Vaidya": [
+        "Agent",
+        "Gandeevadhari Arjuna"
+      ],
+      "Bhagyashri Borse": [
+        "Mr. Bachchan",
+        "Kingdom"
+      ],
+      "Mamitha Baiju": [
+        "Premalu",
+        "Rebel"
+      ],
+      "Anjali": [
+        "Seethamma Vakitlo Sirimalle Chettu",
+        "Geethanjali"
+      ],
+      "Amala Paul": [
+        "Naayak",
+        "Aadai"
+      ],
+      "Catherine Tresa": [
+        "Sarrainodu",
+        "Waltair Veerayya"
+      ],
+      "Rakul Preet Singh": [
+        "Nannaku Prematho",
+        "Dhruva"
+      ],
+      "Ileana D’Cruz": [
+        "Pokiri",
+        "Jalsa"
+      ],
+      "Asin Thottumkal": [
+        "Ghajini",
+        "Amma Nanna O Tamila Ammayi"
+      ],
+      "Genelia D’Souza": [
+        "Bommarillu",
+        "Ready"
+      ]
+    }
+  },
+  "wikiTitles": {
+    "Jr. NTR": "N. T. Rama Rao Jr.",
+    "Nani": "Nani (actor)",
+    "Shankar": "S. Shankar",
+    "Sukumar": "Sukumar (director)",
+    "Sandeep Raj": "Sandeep Raj (director)",
+    "Sree Vishnu": "Sree Vishnu (actor)",
+    "Bobby Kolli": "Bobby (director)",
+    "Trivikram Srinivas": "Trivikram Srinivas"
+  },
+  "hitPairs": {
+    "S. S. Rajamouli|Prabhas": 0.05,
+    "S. S. Rajamouli|Jr. NTR": 0.05,
+    "S. S. Rajamouli|Ram Charan": 0.05,
+    "Sukumar|Allu Arjun": 0.06,
+    "Nag Ashwin|Prabhas": 0.05
+  },
+  "photos": {},
+  "hitTriples": [
+    {
+      "d": "S. S. Rajamouli",
+      "h": "Prabhas",
+      "f": "Anushka Shetty",
+      "bonus": 0.04
+    },
+    {
+      "d": "Sukumar",
+      "h": "Allu Arjun",
+      "f": "Rashmika Mandanna",
+      "bonus": 0.03
+    }
+  ],
+  "scoring": {
+    "base": 32,
+    "heroWeight": 2.35,
+    "heroineWeight": 0.55,
+    "fitWeight": 2.2,
+    "referenceRating": 75,
+    "directorReference": 82,
+    "directorSlope": 0.028,
+    "directorFloor": 0.55,
+    "multiplier": 1.1,
+    "baseProductionFactor": 0.65,
+    "productionReference": 25,
+    "maxBoxOffice": 260
+  }
+}
