@@ -33,6 +33,12 @@ class MainActivity : ComponentActivity() {
     private var speech: TextToSpeech? = null
     private var speechReady = false
     private var foreground = false
+    private inner class BatteryBridge {
+        @JavascriptInterface fun refresh() { runOnUiThread {
+            val battery = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            batteryReceiver.onReceive(this@MainActivity, battery)
+        } }
+    }
     private var batteryReceiverRegistered = false
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -110,6 +116,7 @@ class MainActivity : ComponentActivity() {
 
         webView.addJavascriptInterface(VoiceBridge(), "CinemaVoice")
         webView.addJavascriptInterface(ScreenBridge(), "CinemaScreen")
+        webView.addJavascriptInterface(BatteryBridge(), "CinemaBatteryNative")
         speech = TextToSpeech(this) { status -> speechReady = status == TextToSpeech.SUCCESS }
         speech?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(id: String?) { audioEvent("speaking") }
