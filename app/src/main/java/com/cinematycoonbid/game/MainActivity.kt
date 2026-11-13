@@ -1,5 +1,9 @@
 package com.cinematycoonbid.game
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.webkit.PermissionRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.content.Intent
@@ -24,6 +28,12 @@ class MainActivity : ComponentActivity() {
     private var speech: TextToSpeech? = null
     private var speechReady = false
     private var foreground = false
+    private var pendingMicRequest: PermissionRequest? = null
+    private val microphonePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { allowed ->
+        val request = pendingMicRequest
+        pendingMicRequest = null
+        if (allowed) request?.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) else request?.deny()
+    }
     private fun audioEvent(status: String) {
         runOnUiThread {
             if (!isDestroyed) webView.evaluateJavascript("window.CinemaAudio && window.CinemaAudio.status(" + JSONObject.quote(status) + ")", null)
@@ -89,6 +99,22 @@ class MainActivity : ComponentActivity() {
             }
         }
         webView.webChromeClient = object : WebChromeClient() {
+            override fun onPermissionRequest(request: PermissionRequest) {
+                runOnUiThread {
+                    if (request.origin.scheme != "file" || !request.resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
+                        request.deny()
+                    } else if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                        request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
+                    } else {
+                        pendingMicRequest?.deny()
+                        pendingMicRequest = request
+                        microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                }
+            }
+            override fun onPermissionRequestCanceled(request: PermissionRequest) {
+                if (pendingMicRequest === request) pendingMicRequest = null
+            }
             override fun onJsAlert(view: WebView?, url: String?, message: String?, result: JsResult): Boolean {
                 AlertDialog.Builder(this@MainActivity)
                     .setTitle("Cinema Tycoon Bid")
@@ -145,6 +171,7 @@ class MainActivity : ComponentActivity() {
         super.onPause()
     }
     override fun onDestroy() {
+        pendingMicRequest?.deny(); pendingMicRequest = null
         speech?.stop(); speech?.shutdown(); speech = null
         webView.destroy()
         super.onDestroy()
