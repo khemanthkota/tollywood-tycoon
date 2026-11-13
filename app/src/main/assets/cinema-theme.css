@@ -1,0 +1,16 @@
+
+:root{--bg:#130d1c;--panel:#241a30;--line:#66506f;--gold:#f4c778;--text:#fff7e9;--muted:#d2c4d6}
+body{background:#130d1c!important;isolation:isolate}
+body::before{content:"";position:fixed;inset:-20%;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at 15% 10%,#8e2e674d,transparent 45%),radial-gradient(ellipse at 85% 25%,#b57b3140,transparent 42%),radial-gradient(ellipse at 50% 90%,#402d754d,transparent 50%);animation:cinemaGlow 18s ease-in-out infinite alternate;will-change:transform}
+@keyframes cinemaGlow{to{transform:translate3d(3%,2%,0) rotate(5deg)}}
+header{background:linear-gradient(120deg,#5c2045,#30213e 55%,#442e20)!important;border-bottom:1px solid #d5ac63;box-shadow:0 8px 35px #0004}
+h1{font-family:Georgia,serif;color:#ffe2a1;text-shadow:0 2px 15px #ca8b3d44}
+.card{background:linear-gradient(145deg,#302038f5,#1c1828fa)!important;border-color:#70536f!important;box-shadow:0 8px 26px #0003,inset 0 1px #ffe4ac12}
+button{transition:background .18s,border-color .18s,transform .18s}button:active:not(:disabled){transform:scale(.97)}
+.highest-bidder{padding:14px 16px;margin:14px 0;border:2px solid #f4c778;border-radius:13px;background:linear-gradient(110deg,#563352,#30213f);color:#ffe6a4;font-weight:800;font-size:19px;box-shadow:0 0 20px #e1ab4520;overflow-wrap:anywhere}
+.chip.leading-bidder{border:2px solid #ffe09b;background:#62442d;color:#fff1c7;box-shadow:0 0 12px #efb94d55}
+.trivia-link{display:inline-block;padding:10px 15px;margin:10px 0 0;border:1px solid #c9a56d;border-radius:20px;color:#ffe2a1;text-decoration:none;font-size:14px}
+@media(prefers-reduced-motion:reduce){body::before{animation:none;will-change:auto}button{transition:none}}
+
+.cinema-audio{max-width:620px;margin:14px auto 0;padding:10px 14px;border:1px solid #ad884d;border-radius:14px;background:#201323;color:#f4e6cd;text-align:left;font-size:14px}
+.cinema-audio summary{cursor:pointer;font-weight:700;color:#ffd38a}.audio-options{display:grid;gap:12px;padding-top:14px}.audio-options label{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.audio-options input[type=checkbox]{width:20px;height:20px;accent-color:#e5ad50}.audio-options input[type=range]{max-width:220px;accent-color:#e5ad50}.audio-options select{max-width:100%;padding:10px;background:#241b2c;color:#fff}.audio-options button{padding:10px;border-radius:10px;background:#60402d;color:#fff;border:1px solid #be975f}.audio-options p{font-size:12px;margin:0;color:#e7cfad}

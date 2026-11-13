@@ -1,0 +1,30 @@
+Version 1.0.3 (code 4)
+Highest bidder beside bid controls; leading player highlighted.
+Animated cinema background respects reduced motion.
+All six industries: 50 directors, 50 actors, 50 actresses.
+Optional 10-question Trivia Break, reusing previous trivia data.
+Launcher icon included and connected in manifest.
+Build signed Android App Bundle using your existing upload keystore.
+No trivia scores affect auction budgets. Existing saves retained.
+
+Audio update — version 1.0.4 (version code 5)
+- Music & voice panel on industry, auction and trivia screens.
+- Original synthesized instrumental loop; music is off until enabled.
+- Independent music/voice volume, voice and effects switches; preferences saved locally.
+- Telugu/Tollywood, Hindi/Bollywood, Tamil/Kollywood, Malayalam/Mollywood,
+  Kannada/Sandalwood, English/Hollywood. Mix defaults to English; select any language.
+- Accepted bids and awards announce the player and amount, including decimals.
+- Native Android text-to-speech uses installed device voices, prefers offline voices,
+  and tries English when a language is missing. Install missing language voice data
+  in Android text-to-speech settings. No microphone permission is used.
+- Music lowers during voice announcements. Audio pauses when the app backgrounds.
+- External web links open outside the game WebView, keeping the voice bridge local.
+- Game logic regression and audio controller mock checks passed. Native Android
+  compilation and real-device voice/audio testing must be performed in Android Studio.
+- Sign with your existing cinema-upload key; upload version code 5 to the Alpha track.
+
+Budget update — version 1.0.5 (version code 6)
+Production maximum now equals remaining player budget after all auction purchases
+and other movies' production. The 30% minimum remains. Existing collection formula
+is unchanged: production above 25 Cr adds cost without extra collections.
+Music and multilingual voice controls from 1.0.4 are included.
