@@ -1,6 +1,10 @@
 package com.cinematycoonbid.game
 
 import android.Manifest
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import android.os.BatteryManager
 import android.content.pm.PackageManager
 import android.webkit.PermissionRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -29,6 +33,18 @@ class MainActivity : ComponentActivity() {
     private var speech: TextToSpeech? = null
     private var speechReady = false
     private var foreground = false
+    private var batteryReceiverRegistered = false
+    private val batteryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+            val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
+            if (level < 0 || scale <= 0 || !::webView.isInitialized) return
+            val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+            val charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
+            val percent = (100.0 * level / scale).toInt().coerceIn(0, 100)
+            webView.evaluateJavascript("window.CinemaBattery && window.CinemaBattery.update($percent, $charging)", null)
+        }
+    }
     private var auctionScreenAwake = false
     private fun syncScreenAwake() {
         if (foreground && auctionScreenAwake) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -174,10 +190,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume(); foreground = true; syncScreenAwake()
+        if (!batteryReceiverRegistered) { registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED)); batteryReceiverRegistered = true }
         if (::webView.isInitialized) { webView.onResume(); webView.evaluateJavascript("window.CinemaAudio && window.CinemaAudio.resume()", null) }
     }
     override fun onPause() {
         foreground = false
+        if (batteryReceiverRegistered) { unregisterReceiver(batteryReceiver); batteryReceiverRegistered = false }
         syncScreenAwake()
         speech?.stop()
         if (::webView.isInitialized) { webView.evaluateJavascript("window.CinemaAudio && window.CinemaAudio.pause()", null); webView.onPause() }
