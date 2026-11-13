@@ -1,0 +1,15 @@
+{
+  "name": "cinema-tycoon-multiplayer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prototype realtime room server",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
