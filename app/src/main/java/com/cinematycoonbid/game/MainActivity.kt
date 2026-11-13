@@ -74,7 +74,7 @@ class MainActivity : ComponentActivity() {
     }
     private inner class VoiceBridge {
         @JavascriptInterface fun stop() { runOnUiThread { speech?.stop(); audioEvent("idle") } }
-        @JavascriptInterface fun speak(text: String, language: String, volume: Double, fallback: String) {
+        @JavascriptInterface fun speak(text: String, language: String, volume: Double, fallback: String, voiceStyle: String) {
             runOnUiThread {
                 if (!foreground) return@runOnUiThread
                 val engine = speech
@@ -88,6 +88,8 @@ class MainActivity : ComponentActivity() {
                 if (engine.setLanguage(locale) < TextToSpeech.LANG_AVAILABLE) { audioEvent("No supported voice installed. Check Android text-to-speech settings."); return@runOnUiThread }
                 // Prefer an installed offline voice; otherwise use the engine's selected voice.
                 engine.voices?.firstOrNull { it.locale.language == locale.language && !it.isNetworkConnectionRequired }?.let { engine.voice = it }
+                // Android TTS does not provide a standardized voice gender field. Adjust pitch for the requested style.
+                engine.setPitch(when (voiceStyle) { "male" -> 0.82f; "female" -> 1.18f; else -> 1.0f })
                 val params = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, volume.toFloat().coerceIn(0f, 1f)) }
                 audioEvent("speaking")
                 if (engine.speak(message, TextToSpeech.QUEUE_FLUSH, params, "auction-" + System.nanoTime()) == TextToSpeech.ERROR) audioEvent("Voice playback failed. Check installed voice data.")
