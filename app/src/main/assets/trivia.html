@@ -23,7 +23,9 @@ function questionsFor(ind){
  // Avoid questions whose answers are revealed by their film title or character name.
  const usable=list.filter(f=>f.t!=='role'||(f.c&&f.f&&!f.f.toLowerCase().includes(f.c.toLowerCase())&&!f.c.toLowerCase().includes(f.f.toLowerCase())));
  const fresh=shuffle(usable.filter(f=>!seen.includes(key(f))));
- const pool=fresh.length>=roundSize?fresh:shuffle(usable);
+ // Exhaust unseen facts first; rotate through older facts only when needed.
+ const older=shuffle(usable.filter(f=>seen.includes(key(f))));
+ const pool=[...fresh,...older];
  const chosen=[],usedFilms=new Set(),usedQuestions=new Set();
  for(const kind of ['role','director','year']){
   const target=kind==='role'?4:kind==='director'?2:4;
@@ -43,7 +45,9 @@ function questionsFor(ind){
  // A small catalog can reuse a film only as a last resort.
  for(const f of pool){if(chosen.length>=roundSize)break;const k=key(f);if(!usedQuestions.has(k)){chosen.push(f);usedQuestions.add(k)}}
  const result=shuffle(chosen.slice(0,roundSize));
- safeSave(historyKey,JSON.stringify([...seen,...result.map(key)].slice(-Math.max(20,Math.floor(usable.length*.8)))));
+ const nextSeen=[...new Set([...seen,...result.map(key)])];
+ // Reset the cycle only after most facts have been shown, not every round.
+ safeSave(historyKey,JSON.stringify(nextSeen.length>=usable.length?result.map(key):nextSeen));
  return result;
 }
 function create(f){const context=FACTS.filter(x=>x.i===f.i),year=f.y; let prompt,correct,distractors;
@@ -52,7 +56,7 @@ function create(f){const context=FACTS.filter(x=>x.i===f.i),year=f.y; let prompt
   distractors=[...new Set(shuffle(context.filter(x=>x.t==='role'&&x.c!==f.c).map(x=>x.c)))].slice(0,9);
  }else if(f.t==='director'){
   prompt=`Which film did ${f.p} direct?`;correct=f.f;
-  distractors=[...new Set(shuffle(context.filter(x=>x.t==='director'&&x.p!==f.p).map(x=>x.f)))].slice(0,9);
+  distractors=[...new Set(shuffle(context.filter(x=>x.t==='director'&&x.p!==f.p&&x.f!==f.f).map(x=>x.f)))].slice(0,9);
  }else{
   prompt=`In which year was ${f.f} released?`;correct=String(year);
   distractors=shuffle([year-3,year-2,year-1,year+1,year+2,year+3].map(String)).slice(0,6);
