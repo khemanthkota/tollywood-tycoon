@@ -33,21 +33,37 @@ const choose=a=>a[Math.floor(Math.random()*a.length)];
 function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a}
 function safeRead(k){try{return localStorage.getItem(k)}catch{return null}}
 function safeSave(k,v){try{localStorage.setItem(k,v)}catch{}}
+function comparisonBank(ind){
+ // Derive answerable comparisons from source-linked release years, not invented movie facts.
+ const films=[...new Map(FACTS.filter(f=>f.y>1900&&(ind==='all'||f.i===ind)).map(f=>[f.i+'|'+f.f.toLowerCase(),f])).values()];
+ const groups={};for(const f of films)(groups[f.i]??=[]).push(f);
+ const result=[];
+ for(const group of Object.values(groups)){
+  for(let a=0;a<group.length;a++)for(let b=a+1;b<group.length;b++){
+   const x=group[a],y=group[b];if(x.y===y.y)continue;
+   const early=x.y<y.y?x:y,late=x.y<y.y?y:x;
+   // Both questions have source-backed answers and two plausible film choices.
+   result.push({i:x.i,t:'compare',f:early.f,p:late.f,y:early.y,otherYear:late.y,variant:'earlier',url:early.url,otherUrl:late.url});
+   result.push({i:x.i,t:'compare',f:early.f,p:late.f,y:early.y,otherYear:late.y,variant:'later',url:late.url,otherUrl:early.url});
+  }
+ }
+ return result;
+}
 function questionsFor(ind){
- const list=[...FACTS,...DIALOGUES.map(d=>({...d,t:'dialogue',p:d.q,y:0}))].filter(f=>ind==='all'||f.i===ind);
+ const list=[...FACTS,...DIALOGUES.map(d=>({...d,t:'dialogue',p:d.q,y:0})),...comparisonBank(ind)].filter(f=>ind==='all'||f.i===ind);
  const difficulty=$('difficulty').value;
- const historyKey='cinema-trivia-seen-v4-'+ind+'-'+difficulty;
+ const historyKey='cinema-trivia-seen-v5-'+ind+'-'+difficulty;
  let seen=[];try{seen=JSON.parse(safeRead(historyKey)||'[]');if(!Array.isArray(seen))seen=[]}catch{seen=[]}
  const key=f=>[f.i,f.t,f.f,f.p,f.variant||'normal'].join(':');
  // Avoid questions whose answers are revealed by their film title or character name.
- const usable=list.filter(f=>f.t!=='role'||(f.c&&f.f&&!f.f.toLowerCase().includes(f.c.toLowerCase())&&!f.c.toLowerCase().includes(f.f.toLowerCase()))).flatMap(f=>difficulty==='easy'?[f]:difficulty==='medium'?[f,{...f,variant:'reverse'}]:[{...f,variant:'reverse'},{...f,variant:'challenge'}]);
+ const usable=list.filter(f=>f.t!=='role'||(f.c&&f.f&&!f.f.toLowerCase().includes(f.c.toLowerCase())&&!f.c.toLowerCase().includes(f.f.toLowerCase()))).flatMap(f=>f.t==='compare'?(difficulty==='easy'?[]:[f]):difficulty==='easy'?[f]:difficulty==='medium'?[f,{...f,variant:'reverse'}]:[{...f,variant:'reverse'},{...f,variant:'challenge'}]);
  const fresh=shuffle(usable.filter(f=>!seen.includes(key(f))));
  // Exhaust unseen facts first; rotate through older facts only when needed.
  const older=shuffle(usable.filter(f=>seen.includes(key(f))));
  const pool=[...fresh,...older];
  const chosen=[],usedFilms=new Set(),usedQuestions=new Set();
- for(const kind of ['dialogue','role','director','year']){
-  const target=kind==='dialogue'?2:kind==='role'?3:kind==='director'?2:3;
+ for(const kind of (difficulty==='easy'?['dialogue','role','director','year']:['compare','dialogue','role','director','year'])){
+  const target=kind==='compare'?(difficulty==='hard'?4:2):kind==='dialogue'?2:kind==='role'?3:kind==='director'?2:3;
   let count=0;
   for(const f of pool.filter(f=>f.t===kind)){
    if(count>=target)break;
@@ -70,7 +86,9 @@ function questionsFor(ind){
  return result;
 }
 function create(f){const context=FACTS.filter(x=>x.i===f.i),year=f.y,difficulty=$('difficulty').value; let prompt,correct,distractors;
- if(f.t==='dialogue'){
+ if(f.t==='compare'){
+  prompt=f.variant==='earlier'?'Which movie was released earlier?':'Which movie was released later?';correct=f.variant==='earlier'?f.f:f.p;distractors=[f.variant==='earlier'?f.p:f.f];
+ }else if(f.t==='dialogue'){
   prompt=`Which movie features the dialogue “${f.q}”?`;correct=f.f;
   distractors=shuffle([...new Set([...FACTS,...DIALOGUES].filter(x=>x.i===f.i&&x.f!==f.f).map(x=>x.f))]).slice(0,9);
  }else if(f.t==='role'){
@@ -90,9 +108,9 @@ function create(f){const context=FACTS.filter(x=>x.i===f.i),year=f.y,difficulty=
  if(f.variant==='challenge'&&f.t==='year'){prompt=`Which of these movies premiered in ${f.y}?`;correct=f.f;distractors=shuffle([...new Set(context.filter(x=>x.f!==f.f&&x.y!==f.y&&Math.abs(x.y-f.y)<=4).map(x=>x.f))]);}
  if(difficulty==='hard'&&f.t==='year'&&!f.variant){distractors=shuffle([year-2,year-1,year+1,year+2,year+3].map(String));}
  // Fallback to year question if category has too few meaningful distractors.
- if(distractors.length<3){prompt=`In which year was ${f.f} released?`;correct=String(year);distractors=shuffle([year-3,year-2,year-1,year+1,year+2,year+3].map(String));}
- const opts=shuffle([correct,...distractors.slice(0,3)]);
- const explain=f.variant&&f.t==='role'&&prompt.startsWith('In ')?`${f.p} played ${f.c} in ${f.f}.`:f.variant&&f.t==='director'&&prompt.startsWith('Who directed')?`${f.p} directed ${f.f}.`:f.variant&&f.t==='year'&&prompt.startsWith('Which')?`${f.f} was released in ${f.y}.`:f.t==='dialogue'&&prompt.startsWith('Which movie')?`“${f.q}” is associated with ${f.f}. ${f.note||''}`:f.t==='role'&&prompt.startsWith('Which character')?`${f.p} played ${f.c} in ${f.f} (${f.y}).`:f.t==='director'&&prompt.startsWith('Which film')?`${f.p} directed ${f.f} (${f.y}).`:`${f.f} was released in ${f.y}.`;
+ if(f.t!=='compare'&&distractors.length<3){prompt=`In which year was ${f.f} released?`;correct=String(year);distractors=shuffle([year-3,year-2,year-1,year+1,year+2,year+3].map(String));}
+ const opts=shuffle([correct,...distractors.slice(0,f.t==='compare'?1:3)]);
+ const explain=f.t==='compare'?`${f.f} released in ${f.y}; ${f.p} released in ${f.otherYear}.`:f.variant&&f.t==='role'&&prompt.startsWith('In ')?`${f.p} played ${f.c} in ${f.f}.`:f.variant&&f.t==='director'&&prompt.startsWith('Who directed')?`${f.p} directed ${f.f}.`:f.variant&&f.t==='year'&&prompt.startsWith('Which')?`${f.f} was released in ${f.y}.`:f.t==='dialogue'&&prompt.startsWith('Which movie')?`“${f.q}” is associated with ${f.f}. ${f.note||''}`:f.t==='role'&&prompt.startsWith('Which character')?`${f.p} played ${f.c} in ${f.f} (${f.y}).`:f.t==='director'&&prompt.startsWith('Which film')?`${f.p} directed ${f.f} (${f.y}).`:`${f.f} was released in ${f.y}.`;
  return {prompt,correct,opts,explain,url:f.url};
 }
 function showSetup(){for(const id of ['play','finish'])$(id).classList.add('hidden');$('setup').classList.remove('hidden');$('best').textContent='Best round: '+(safeRead('cinema-mini-trivia-best')||'—')+'/10'}
