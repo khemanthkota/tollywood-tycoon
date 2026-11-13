@@ -259,12 +259,12 @@ function timerUpdate(){
  $('timerPause').textContent=timerPaused?'Resume':'Pause';
 }
 function timerStop(){timerLot=null;timerRunning=false;timerPaused=false;timerStage=0;timerUpdate()}
-function timerStart(){timerLot=lotId();timerStage=0;timerLeft=Number($('timerDuration').value)||15;timerRunning=!!timerLot;timerPaused=false;timerUpdate()}
+function timerStart(){timerLot=lotId();timerStage=0;timerLeft=Number($('timerDuration').value)||15;timerRunning=!!timerLot;timerPaused=false;timerUpdate();if(timerRunning)window.CinemaAudio?.call(0)}
 function timerAdvance(){
  if(!timerLot||timerLot!==lotId()){timerStop();return}
  const a=auction($('category').value,$('person').value);
  if(a.owner!==null){timerStop();return}
- if(timerStage<2){timerStage++;timerLeft=Number($('timerDuration').value)||15;timerUpdate();return}
+ if(timerStage<2){timerStage++;timerLeft=Number($('timerDuration').value)||15;timerUpdate();window.CinemaAudio?.call(timerStage);return}
  timerRunning=false;timerStage=3;timerUpdate();
  if(a.bids.length){$('closeAuction').click()}else{
   if(surpriseMode()&&currentSurprise()){passCurrentLot()}
