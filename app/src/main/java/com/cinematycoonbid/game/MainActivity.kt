@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
             val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
             val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
             if (level < 0 || scale <= 0 || !::webView.isInitialized) return
-            val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+            val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
             val charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
             val percent = (100.0 * level / scale).toInt().coerceIn(0, 100)
             webView.evaluateJavascript("window.CinemaBattery && window.CinemaBattery.update($percent, $charging)", null)
