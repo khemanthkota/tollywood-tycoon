@@ -6,6 +6,7 @@ import android.webkit.PermissionRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.view.WindowManager
 import android.content.Intent
 import android.net.Uri
 import android.webkit.JavascriptInterface
@@ -28,6 +29,16 @@ class MainActivity : ComponentActivity() {
     private var speech: TextToSpeech? = null
     private var speechReady = false
     private var foreground = false
+    private var auctionScreenAwake = false
+    private fun syncScreenAwake() {
+        if (foreground && auctionScreenAwake) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+    private inner class ScreenBridge {
+        @JavascriptInterface fun setAuctionActive(active: Boolean) {
+            runOnUiThread { auctionScreenAwake = active; syncScreenAwake() }
+        }
+    }
     private var pendingMicRequest: PermissionRequest? = null
     private val microphonePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { allowed ->
         val request = pendingMicRequest
@@ -82,6 +93,7 @@ class MainActivity : ComponentActivity() {
         }
 
         webView.addJavascriptInterface(VoiceBridge(), "CinemaVoice")
+        webView.addJavascriptInterface(ScreenBridge(), "CinemaScreen")
         speech = TextToSpeech(this) { status -> speechReady = status == TextToSpeech.SUCCESS }
         speech?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(id: String?) { audioEvent("speaking") }
@@ -161,11 +173,12 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onResume() {
-        super.onResume(); foreground = true
+        super.onResume(); foreground = true; syncScreenAwake()
         if (::webView.isInitialized) { webView.onResume(); webView.evaluateJavascript("window.CinemaAudio && window.CinemaAudio.resume()", null) }
     }
     override fun onPause() {
         foreground = false
+        syncScreenAwake()
         speech?.stop()
         if (::webView.isInitialized) { webView.evaluateJavascript("window.CinemaAudio && window.CinemaAudio.pause()", null); webView.onPause() }
         super.onPause()
