@@ -15,7 +15,37 @@ const choose=a=>a[Math.floor(Math.random()*a.length)];
 function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a}
 function safeRead(k){try{return localStorage.getItem(k)}catch{return null}}
 function safeSave(k,v){try{localStorage.setItem(k,v)}catch{}}
-function questionsFor(ind){const list=FACTS.filter(f=>ind==='all'||f.i===ind),categories=['role','director','year'];let chosen=[]; for(const kind of categories){const count=kind==='role'?4:kind==='director'?2:4;const candidates=shuffle(list.filter(f=>f.t===kind));chosen.push(...candidates.slice(0,count));}const unique=new Set(chosen.map(f=>`${f.i}:${f.t}:${f.f}:${f.p}`));for(const f of shuffle(list)){if(chosen.length>=roundSize)break;const k=`${f.i}:${f.t}:${f.f}:${f.p}`;if(!unique.has(k)){chosen.push(f);unique.add(k)}}return shuffle(chosen.slice(0,roundSize))}
+function questionsFor(ind){
+ const list=FACTS.filter(f=>ind==='all'||f.i===ind);
+ const historyKey='cinema-trivia-seen-v2-'+ind;
+ let seen=[];try{seen=JSON.parse(safeRead(historyKey)||'[]');if(!Array.isArray(seen))seen=[]}catch{seen=[]}
+ const key=f=>[f.i,f.t,f.f,f.p].join(':');
+ // Avoid questions whose answers are revealed by their film title or character name.
+ const usable=list.filter(f=>f.t!=='role'||(f.c&&f.f&&!f.f.toLowerCase().includes(f.c.toLowerCase())&&!f.c.toLowerCase().includes(f.f.toLowerCase())));
+ const fresh=shuffle(usable.filter(f=>!seen.includes(key(f))));
+ const pool=fresh.length>=roundSize?fresh:shuffle(usable);
+ const chosen=[],usedFilms=new Set(),usedQuestions=new Set();
+ for(const kind of ['role','director','year']){
+  const target=kind==='role'?4:kind==='director'?2:4;
+  let count=0;
+  for(const f of pool.filter(f=>f.t===kind)){
+   if(count>=target)break;
+   const k=key(f),film=f.i+':'+f.f.toLowerCase();
+   if(usedQuestions.has(k)||usedFilms.has(film))continue;
+   chosen.push(f);usedQuestions.add(k);usedFilms.add(film);count++;
+  }
+ }
+ for(const f of pool){
+  if(chosen.length>=roundSize)break;
+  const k=key(f),film=f.i+':'+f.f.toLowerCase();
+  if(!usedQuestions.has(k)&&!usedFilms.has(film)){chosen.push(f);usedQuestions.add(k);usedFilms.add(film)}
+ }
+ // A small catalog can reuse a film only as a last resort.
+ for(const f of pool){if(chosen.length>=roundSize)break;const k=key(f);if(!usedQuestions.has(k)){chosen.push(f);usedQuestions.add(k)}}
+ const result=shuffle(chosen.slice(0,roundSize));
+ safeSave(historyKey,JSON.stringify([...seen,...result.map(key)].slice(-Math.max(20,Math.floor(usable.length*.8)))));
+ return result;
+}
 function create(f){const context=FACTS.filter(x=>x.i===f.i),year=f.y; let prompt,correct,distractors;
  if(f.t==='role'){
   prompt=`Which character did ${f.p} play in ${f.f} (${f.y})?`;correct=f.c;
