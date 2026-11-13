@@ -188,10 +188,23 @@ class MainActivity : ComponentActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack()
-        } else {
-            super.onBackPressed()
+        if (!::webView.isInitialized) { super.onBackPressed(); return }
+        webView.evaluateJavascript("Boolean(window.CinemaGameLifecycle && window.CinemaGameLifecycle.isAuctionActive())") { active ->
+            if (active == "true") {
+                webView.evaluateJavascript("window.CinemaGameLifecycle.pauseAuction()", null)
+                AlertDialog.Builder(this)
+                    .setTitle("Leave auction?")
+                    .setMessage("Bidding is paused. Your bids and game progress will be saved.")
+                    .setNegativeButton("Stay in Auction", null)
+                    .setPositiveButton("Leave Auction") { _, _ ->
+                        webView.evaluateJavascript("window.CinemaGameLifecycle.leaveAuction()", null)
+                    }
+                    .show()
+            } else if (webView.canGoBack()) {
+                webView.goBack()
+            } else {
+                super.onBackPressed()
+            }
         }
     }
 
