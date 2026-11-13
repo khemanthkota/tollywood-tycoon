@@ -205,7 +205,7 @@ class MainActivity : ComponentActivity() {
         if (batteryReceiverRegistered) { unregisterReceiver(batteryReceiver); batteryReceiverRegistered = false }
         syncScreenAwake()
         speech?.stop()
-        if (::webView.isInitialized) { webView.evaluateJavascript("window.CinemaAudio && window.CinemaAudio.pause()", null); webView.onPause() }
+        if (::webView.isInitialized) { webView.evaluateJavascript("window.CinemaGameLifecycle && window.CinemaGameLifecycle.pauseAuction(); window.CinemaAudio && window.CinemaAudio.pause()", null); webView.onPause() }
         super.onPause()
     }
     override fun onDestroy() {
