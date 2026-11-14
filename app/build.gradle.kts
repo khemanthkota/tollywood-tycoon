@@ -23,4 +23,7 @@ android {
 
 dependencies {
     implementation("androidx.activity:activity-ktx:1.10.1")
+    implementation("org.java-websocket:Java-WebSocket:1.5.7")
+    implementation("org.nanohttpd:nanohttpd:2.3.1")
+    implementation("com.google.zxing:core:3.5.3")
 }
