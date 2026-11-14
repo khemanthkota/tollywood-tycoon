@@ -1,3 +1,9 @@
+## Android offline LAN hosting (experimental)
+
+The Android app now includes an embedded HTTP server (port 8080), WebSocket game server (port 3000), and native offline QR generator. On the Android host, select Offline Wi-Fi and tap Host Game. The app obtains the Wi-Fi/hotspot IPv4 address and starts both servers; the room screen shows a QR join link to `http://HOST_IP:8080/multiplayer.html`. Other players scan with their phone camera and use a browser on the same reachable network. No cloud or Node server is required for this mode.
+
+**Testing limitations:** Code has not been built or tested in an Android emulator or on real devices. Some Wi-Fi routers enable client isolation; Android hotspot networking varies by manufacturer; Android TV launcher, D-pad, casting and foreground hosting still require separate validation. The host must keep the app running. This implementation uses plain HTTP/WS on the trusted local network only, not for internet deployment. Game scoring remains a placeholder and host disconnect ends the room. Room codes are not authentication; use only with trusted players.
+
 # Cinema Tycoon Bid multiplayer preview
 
 This is an **early prototype** and is not yet integrated with the single-device game engine, celebrity catalog, scoring, or winner logic. No accounts or persistent room storage.
