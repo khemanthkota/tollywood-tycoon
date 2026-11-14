@@ -30,6 +30,15 @@ import androidx.activity.ComponentActivity
 class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
+    private var localParty: LocalPartyServer? = null
+    private inner class LocalPartyBridge {
+        @JavascriptInterface fun start(): String = try {
+            val server = localParty ?: LocalPartyServer(this@MainActivity).also { localParty = it }
+            val ip = server.start()
+            if(ip.isBlank()) "ERROR: Connect the host to Wi-Fi or a hotspot first" else ip
+        } catch (e: Exception) { "ERROR: " + (e.message ?: "Cannot start local server") }
+        @JavascriptInterface fun address(): String = localParty?.address() ?: ""
+    }
     private var speech: TextToSpeech? = null
     private var speechReady = false
     private var foreground = false
@@ -117,6 +126,7 @@ class MainActivity : ComponentActivity() {
         }
 
         webView.addJavascriptInterface(VoiceBridge(), "CinemaVoice")
+        webView.addJavascriptInterface(LocalPartyBridge(), "CinemaLocalParty")
         webView.addJavascriptInterface(ScreenBridge(), "CinemaScreen")
         webView.addJavascriptInterface(BatteryBridge(), "CinemaBatteryNative")
         speech = TextToSpeech(this) { status -> speechReady = status == TextToSpeech.SUCCESS }
@@ -226,6 +236,7 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         pendingMicRequest?.deny(); pendingMicRequest = null
         speech?.stop(); speech?.shutdown(); speech = null
+        localParty?.stop()
         webView.destroy()
         super.onDestroy()
     }
