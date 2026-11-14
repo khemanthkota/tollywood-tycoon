@@ -68,7 +68,8 @@ class LocalPartyServer(private val context: Context) {
                     if(word.isBlank()||word.length>60||!clean.add(word))error("Invalid or duplicate word")
                 }
                 codeReset();codeHost=c;codeRoom=(100000+random.nextInt(900000)).toString()
-                val colors=(List(9){"red"}+List(8){"blue"}+List(7){"neutral"}+listOf("assassin")).shuffled(random)
+                val colors=(List(9){"red"}+List(8){"blue"}+List(7){"neutral"}+listOf("assassin")).toMutableList()
+                java.util.Collections.shuffle(colors,random)
                 clean.forEachIndexed { i,name->codeCards.put(JSONObject().put("name",name).put("color",colors[i]).put("open",false)) }
                 codeNote="Red starts. Captains give clues."
                 send(c,JSONObject().put("type","code_created").put("code",codeRoom))
