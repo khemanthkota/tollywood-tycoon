@@ -60,7 +60,7 @@ class LocalPartyServer(private val context: Context) {
         override fun onStart() { connectionLostTimeout=30 }
     }
     fun start():String = synchronized(this) {
-        if(!running) { http.start(SOCKET_READ_TIMEOUT,false); socket.start(); running=true }
+        if(!running) { http.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false); socket.start(); running=true }
         return address() ?: ""
     }
     fun stop() = synchronized(this) { if(running){socket.stop(1000);http.stop();running=false};reset() }
