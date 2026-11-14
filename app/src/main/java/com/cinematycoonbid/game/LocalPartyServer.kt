@@ -30,11 +30,90 @@ class LocalPartyServer(private val context: Context) {
     private val history = JSONArray()
     private var results: JSONArray? = null
     private var running = false
+
+    private var codeHost:WebSocket?=null
+    private var codeRoom=""
+    private val codeGuests=linkedMapOf<WebSocket,String>()
+    private var codeCards=JSONArray()
+    private var codeTurn="red"
+    private var codeWinner=""
+    private var codeNote=""
+    private fun codeReset(){codeHost=null;codeRoom="";codeGuests.clear();codeCards=JSONArray();codeTurn="red";codeWinner="";codeNote=""}
+    private fun codeState(secret:Boolean):JSONObject {
+        val cards=JSONArray()
+        for(i in 0 until codeCards.length()){
+            val c=codeCards.getJSONObject(i)
+            cards.put(JSONObject().put("name",c.getString("name")).put("open",c.getBoolean("open"))
+                .put("color",if(secret||c.getBoolean("open"))c.getString("color") else JSONObject.NULL))
+        }
+        return JSONObject().put("type","code_state").put("code",codeRoom).put("cards",cards)
+            .put("turn",codeTurn).put("winner",codeWinner).put("note",codeNote)
+    }
+    private fun codeBroadcast(){
+        send(codeHost,codeState(false))
+        codeGuests.forEach { (c,role)->send(c,codeState(role=="redCaptain"||role=="blueCaptain")) }
+    }
+    private fun codeHandle(c:WebSocket,m:JSONObject):Boolean {
+        val type=m.optString("type")
+        if(!type.startsWith("code_"))return false
+        when(type){
+            "code_create"->{
+                if(codeHost!=null)error("Codewords room already active")
+                if(sessions.containsKey(c)||codeGuests.containsKey(c))error("Already in a room")
+                val names=m.optJSONArray("names")?:error("Missing words")
+                if(names.length()!=25)error("Exactly 25 words required")
+                val clean=mutableSetOf<String>()
+                for(i in 0 until 25){
+                    val word=names.optString(i).trim()
+                    if(word.isBlank()||word.length>60||!clean.add(word))error("Invalid or duplicate word")
+                }
+                codeReset();codeHost=c;codeRoom=(100000+random.nextInt(900000)).toString()
+                val colors=(List(9){"red"}+List(8){"blue"}+List(7){"neutral"}+listOf("assassin")).shuffled(random)
+                clean.forEachIndexed { i,name->codeCards.put(JSONObject().put("name",name).put("color",colors[i]).put("open",false)) }
+                codeNote="Red starts. Captains give clues."
+                send(c,JSONObject().put("type","code_created").put("code",codeRoom))
+                codeBroadcast()
+            }
+            "code_join"->{
+                if(codeHost==null||m.optString("code")!=codeRoom)error("Room not found")
+                if(codeGuests.size>=24)error("Room full")
+                if(sessions.containsKey(c)||codeGuests.containsKey(c)||c==codeHost)error("Already joined")
+                val role=m.optString("role")
+                if(role !in listOf("redCaptain","blueCaptain","player"))error("Invalid role")
+                if(role!="player"&&codeGuests.values.contains(role))error("Captain already joined")
+                codeGuests[c]=role
+                send(c,JSONObject().put("type","code_joined").put("role",role))
+                codeBroadcast()
+            }
+            "code_guess","code_end"->{
+                if(codeHost==null||codeWinner.isNotEmpty())error("No active game")
+                if(c!=codeHost&&codeGuests[c]!="player")error("Only players can guess")
+                if(type=="code_end"){codeTurn=if(codeTurn=="red")"blue" else "red";codeNote="Turn ended"}
+                else{
+                    val index=m.optInt("index",-1)
+                    if(index !in 0..24)error("Invalid card")
+                    val card=codeCards.getJSONObject(index)
+                    if(card.getBoolean("open"))error("Card already revealed")
+                    card.put("open",true)
+                    val color=card.getString("color")
+                    if(color=="assassin"){codeWinner=if(codeTurn=="red")"blue" else "red";codeNote="Black card! "+codeWinner+" wins"}
+                    else if((0 until 25).none { val x=codeCards.getJSONObject(it);x.getString("color")==codeTurn&&!x.getBoolean("open") }){
+                        codeWinner=codeTurn;codeNote=codeWinner+" wins!"
+                    }else if(color!=codeTurn){codeTurn=if(codeTurn=="red")"blue" else "red";codeNote="Wrong card. Turn switched"}
+                    else codeNote="Correct! Guess again or end turn"
+                }
+                codeBroadcast()
+            }
+            else->error("Unknown Codewords action")
+        }
+        return true
+    }
+
     private data class Player(val id:String,val name:String,var budget:Int=100,val contracts:JSONArray=JSONArray(),var movie:JSONObject?=null,var ws:WebSocket?=null)
     private val http = object : NanoHTTPD(8080) {
         override fun serve(session: IHTTPSession): Response {
             val path = session.uri.substringBefore('?')
-            val filename = when(path) { "/", "/join", "/multiplayer.html" -> "multiplayer.html"; else -> "" }
+            val filename = when(path) { "/", "/join", "/multiplayer.html" -> "multiplayer.html"; "/codewords", "/codewords-lan.html" -> "codewords-lan.html"; else -> "" }
             if(filename.isEmpty()) return newFixedLengthResponse(Response.Status.NOT_FOUND,"text/plain","Not found")
             return try {
                 val body=context.assets.open(filename).use { it.readBytes() }
@@ -48,12 +127,14 @@ class LocalPartyServer(private val context: Context) {
     private val socket = object: WebSocketServer(InetSocketAddress("0.0.0.0",3000)) {
         override fun onOpen(conn:WebSocket, handshake:ClientHandshake) {}
         override fun onClose(conn:WebSocket, code:Int, reason:String, remote:Boolean) = synchronized(this@LocalPartyServer) {
+            if(conn==codeHost){codeReset();return@synchronized}
+            if(codeGuests.remove(conn)!=null){codeBroadcast();return@synchronized}
             val id=sessions.remove(conn)
             if(id=="HOST") { reset(); broadcast() }
             else if(id!=null) { players[id]?.ws=null; broadcast() }
         }
         override fun onMessage(conn:WebSocket, message:String) = synchronized(this@LocalPartyServer) {
-            try { if(message.length>8192) error("Message too large"); handle(conn,JSONObject(message)) }
+            try { if(message.length>8192) error("Message too large"); val payload=JSONObject(message);if(!codeHandle(conn,payload))handle(conn,payload) }
             catch(e:Exception) { send(conn,JSONObject().put("type","error").put("message",e.message?:"Invalid request")) }
         }
         override fun onError(conn:WebSocket?, ex:Exception) {}
@@ -63,7 +144,7 @@ class LocalPartyServer(private val context: Context) {
         if(!running) { http.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false); socket.start(); running=true }
         return address() ?: ""
     }
-    fun stop() = synchronized(this) { if(running){socket.stop(1000);http.stop();running=false};reset() }
+    fun stop() = synchronized(this) { if(running){socket.stop(1000);http.stop();running=false};reset();codeReset() }
     fun address():String? {
         val interfaces=NetworkInterface.getNetworkInterfaces() ?: return null
         for(n in interfaces) {
