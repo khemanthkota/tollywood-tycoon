@@ -38,6 +38,15 @@ class MainActivity : ComponentActivity() {
             if(ip.isBlank()) "ERROR: Connect the host to Wi-Fi or a hotspot first" else ip
         } catch (e: Exception) { "ERROR: " + (e.message ?: "Cannot start local server") }
         @JavascriptInterface fun address(): String = localParty?.address() ?: ""
+        @JavascriptInterface fun qr(url: String): String = try {
+            val matrix = com.google.zxing.MultiFormatWriter().encode(url.take(1024), com.google.zxing.BarcodeFormat.QR_CODE, 300, 300)
+            val bmp = android.graphics.Bitmap.createBitmap(300, 300, android.graphics.Bitmap.Config.ARGB_8888)
+            for(y in 0 until 300) for(x in 0 until 300) bmp.setPixel(x,y,if(matrix[x,y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+            val bytes=java.io.ByteArrayOutputStream()
+            bmp.compress(android.graphics.Bitmap.CompressFormat.PNG,100,bytes)
+            bmp.recycle()
+            "data:image/png;base64,"+android.util.Base64.encodeToString(bytes.toByteArray(),android.util.Base64.NO_WRAP)
+        } catch (_:Exception) { "" }
     }
     private var speech: TextToSpeech? = null
     private var speechReady = false
