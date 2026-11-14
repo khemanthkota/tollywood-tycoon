@@ -219,7 +219,15 @@ class MainActivity : ComponentActivity() {
                     .setNegativeButton("Stay in Auction", null)
                     .setPositiveButton("Leave Auction") { _, _ ->
                         webView.evaluateJavascript("window.CinemaGameLifecycle.leaveAuction()", null)
+                        webView.loadUrl("file:///android_asset/index.html")
                     }
+                    .show()
+            } else if (webView.url?.contains("/android_asset/index.html") == false) {
+                AlertDialog.Builder(this)
+                    .setTitle("Leave game?")
+                    .setMessage("Return to game selection? Any unsaved progress in this screen may be lost.")
+                    .setNegativeButton("Stay", null)
+                    .setPositiveButton("Leave") { _, _ -> webView.loadUrl("file:///android_asset/index.html") }
                     .show()
             } else if (webView.canGoBack()) {
                 webView.goBack()
