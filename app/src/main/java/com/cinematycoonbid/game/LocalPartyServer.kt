@@ -31,6 +31,8 @@ class LocalPartyServer(private val context: Context) {
     private var results: JSONArray? = null
     private var running = false
 
+    private val codeScreens=linkedSetOf<WebSocket>()
+    private val bidScreens=linkedSetOf<WebSocket>()
     private var codeHost:WebSocket?=null
     private var codeRoom=""
     private val codeGuests=linkedMapOf<WebSocket,String>()
@@ -38,7 +40,7 @@ class LocalPartyServer(private val context: Context) {
     private var codeTurn="red"
     private var codeWinner=""
     private var codeNote=""
-    private fun codeReset(){codeHost=null;codeRoom="";codeGuests.clear();codeCards=JSONArray();codeTurn="red";codeWinner="";codeNote=""}
+    private fun codeReset(){codeHost=null;codeRoom="";codeGuests.clear();codeScreens.clear();codeCards=JSONArray();codeTurn="red";codeWinner="";codeNote=""}
     private fun codeState(secret:Boolean):JSONObject {
         val cards=JSONArray()
         for(i in 0 until codeCards.length()){
@@ -51,6 +53,7 @@ class LocalPartyServer(private val context: Context) {
     }
     private fun codeBroadcast(){
         send(codeHost,codeState(false))
+        codeScreens.forEach { send(it,codeState(false)) }
         codeGuests.forEach { (c,role)->send(c,codeState(role=="redCaptain"||role=="blueCaptain")) }
     }
     private fun codeHandle(c:WebSocket,m:JSONObject):Boolean {
@@ -74,6 +77,11 @@ class LocalPartyServer(private val context: Context) {
                 codeNote="Red starts. Captains give clues."
                 send(c,JSONObject().put("type","code_created").put("code",codeRoom))
                 codeBroadcast()
+            }
+            "code_watch"->{
+                if(codeHost==null||m.optString("code")!=codeRoom)error("Room not found")
+                if(codeScreens.size>=5)error("Too many TV displays")
+                codeScreens.add(c);send(c,codeState(false))
             }
             "code_join"->{
                 if(codeHost==null||m.optString("code")!=codeRoom)error("Room not found")
@@ -114,7 +122,7 @@ class LocalPartyServer(private val context: Context) {
     private val http = object : NanoHTTPD(8080) {
         override fun serve(session: IHTTPSession): Response {
             val path = session.uri.substringBefore('?')
-            val filename = when(path) { "/", "/join", "/multiplayer.html" -> "multiplayer.html"; "/codewords", "/codewords-lan.html" -> "codewords-lan.html"; else -> "" }
+            val filename = when(path) { "/", "/join", "/multiplayer.html" -> "multiplayer.html"; "/codewords", "/codewords-lan.html" -> "codewords-lan.html"; "/tv.html" -> "tv.html"; else -> "" }
             if(filename.isEmpty()) return newFixedLengthResponse(Response.Status.NOT_FOUND,"text/plain","Not found")
             return try {
                 val body=context.assets.open(filename).use { it.readBytes() }
@@ -128,6 +136,8 @@ class LocalPartyServer(private val context: Context) {
     private val socket = object: WebSocketServer(InetSocketAddress("0.0.0.0",3000)) {
         override fun onOpen(conn:WebSocket, handshake:ClientHandshake) {}
         override fun onClose(conn:WebSocket, code:Int, reason:String, remote:Boolean) = synchronized(this@LocalPartyServer) {
+            if(codeScreens.remove(conn))return@synchronized
+            if(bidScreens.remove(conn))return@synchronized
             if(conn==codeHost){codeReset();return@synchronized}
             if(codeGuests.remove(conn)!=null){codeBroadcast();return@synchronized}
             val id=sessions.remove(conn)
@@ -154,7 +164,7 @@ class LocalPartyServer(private val context: Context) {
         }
         return null
     }
-    private fun reset(){players.clear();sessions.clear();host=null;room="";lot=null;highId=null;highAmount=0;deadline=0;phase="auction";results=null;while(history.length()>0)history.remove(0)}
+    private fun reset(){bidScreens.clear();players.clear();sessions.clear();host=null;room="";lot=null;highId=null;highAmount=0;deadline=0;phase="auction";results=null;while(history.length()>0)history.remove(0)}
     private fun send(c:WebSocket?,o:JSONObject){try{if(c?.isOpen==true)c.send(o.toString())}catch(_:Exception){}}
     private fun state():JSONObject {
         val list=JSONArray()
@@ -162,7 +172,7 @@ class LocalPartyServer(private val context: Context) {
         val high=highId?.let{players[it]}?.let{JSONObject().put("name",it.name).put("amount",highAmount)}
         return JSONObject().put("code",room).put("mode",mode).put("seconds",seconds).put("phase",phase).put("lot",lot?:JSONObject.NULL).put("high",high?:JSONObject.NULL).put("remaining",if(deadline>0) ((deadline-System.currentTimeMillis()+999)/1000).coerceAtLeast(0) else JSONObject.NULL).put("players",list).put("history",history).put("results",results?:JSONObject.NULL)
     }
-    private fun broadcast(){val s=state();send(host,JSONObject().put("type","state").put("state",s));players.values.forEach{p->send(p.ws,JSONObject().put("type","state").put("state",s).put("you",p.id))}}
+    private fun broadcast(){val s=state();send(host,JSONObject().put("type","state").put("state",s));players.values.forEach{p->send(p.ws,JSONObject().put("type","state").put("state",s).put("you",p.id))};bidScreens.forEach{send(it,JSONObject().put("type","state").put("state",s))}}
     private fun endLot(){
         if(lot==null)return
         var outcome="Unsold"
@@ -175,6 +185,11 @@ class LocalPartyServer(private val context: Context) {
         val type=m.optString("type")
         val id=sessions[c]
         if(id==null) {
+            if(type=="watch"){
+                if(room.isEmpty()||m.optString("code")!=room)error("Room not found")
+                if(bidScreens.size>=5)error("Too many TV displays")
+                bidScreens.add(c);send(c,JSONObject().put("type","state").put("state",state()));return
+            }
             if(type=="create"){
                 if(host!=null)error("This device already hosts a room")
                 reset();room=(100000+random.nextInt(900000)).toString();host=c;sessions[c]="HOST";mode=if(m.optString("mode")=="auto")"auto" else "manual";seconds=m.optInt("seconds",30).takeIf{it in listOf(15,30,45,60)}?:30
