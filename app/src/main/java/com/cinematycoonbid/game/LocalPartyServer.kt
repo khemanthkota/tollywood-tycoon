@@ -103,7 +103,8 @@ class LocalPartyServer(private val context: Context) {
                     codeRoles[id]="player"
                     codeTokens[id]="player"
                 }
-                codeConnections.entries.removeAll { it.value==id }
+                val previousSockets=codeConnections.filterValues{it==id}.keys.toList()
+                previousSockets.forEach{ codeConnections.remove(it);codeGuests.remove(it) }
                 codeConnections[c]=id
                 codeGuests[c]=codeRoles[id]?: "player"
                 send(c,JSONObject().put("type","code_joined").put("role",codeRoles[id]).put("token",id))
@@ -299,6 +300,7 @@ class LocalPartyServer(private val context: Context) {
             if(codeScreens.remove(conn))return@synchronized
             if(bidScreens.remove(conn))return@synchronized
             if(conn==codeHost){codeReset();return@synchronized}
+            codeConnections.remove(conn)
             if(codeGuests.remove(conn)!=null){codeBroadcast();return@synchronized}
             val id=sessions.remove(conn)
             if(id=="HOST") { reset(); broadcast() }
