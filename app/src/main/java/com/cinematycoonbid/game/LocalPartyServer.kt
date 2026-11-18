@@ -81,6 +81,7 @@ class LocalPartyServer(private val context: Context) {
             "code_watch"->{
                 if(codeHost==null||m.optString("code")!=codeRoom)error("Room not found")
                 if(codeScreens.size>=5)error("Too many TV displays")
+                if(c==codeHost||codeGuests.containsKey(c))error("Already in this room")
                 codeScreens.add(c);send(c,codeState(false))
             }
             "code_join"->{
@@ -180,6 +181,7 @@ class LocalPartyServer(private val context: Context) {
         when(type){
             "trivia_create"->{
                 if(triviaHost!=null)error("Trivia room already active")
+                if(sessions.containsKey(c)||codeGuests.containsKey(c)||c==codeHost)error("Already in another room")
                 triviaReset();triviaHost=c;triviaRoom=(100000+random.nextInt(900000)).toString()
                 val industry=m.optString("industry","all")
                 val candidates=triviaFullBank.filter{industry=="all"||it.first==industry}.map{it.second}.toMutableList()
@@ -197,6 +199,7 @@ class LocalPartyServer(private val context: Context) {
             "trivia_watch"->{
                 if(triviaHost==null||m.optString("code")!=triviaRoom)error("Room not found")
                 if(triviaScreens.size>=5)error("Too many TV displays")
+                if(c==triviaHost||triviaPlayers.containsKey(c))error("Already in this room")
                 triviaScreens.add(c);send(c,triviaState())
             }
             "trivia_join"->{
@@ -204,7 +207,7 @@ class LocalPartyServer(private val context: Context) {
                 if(triviaPlayers.containsKey(c)||c==triviaHost)error("Already joined")
                 val resume=m.optString("token")
                 val old=triviaPlayers.entries.firstOrNull{it.value.token==resume&&resume.isNotBlank()}
-                if(old!=null){val player=old.value;triviaPlayers.remove(old.key);triviaPlayers[c]=player;send(c,JSONObject().put("type","trivia_joined").put("token",player.token));triviaBroadcast();return}
+                if(old!=null){val player=old.value;triviaPlayers.remove(old.key);triviaPlayers[c]=player;send(c,JSONObject().put("type","trivia_joined").put("token",player.token));triviaBroadcast();return true}
                 if(triviaPlayers.size>=20)error("Room full")
                 val name=m.optString("name").trim().take(24)
                 if(name.isBlank())error("Enter your name")
@@ -261,7 +264,7 @@ class LocalPartyServer(private val context: Context) {
         override fun onClose(conn:WebSocket, code:Int, reason:String, remote:Boolean) = synchronized(this@LocalPartyServer) {
             if(conn==triviaHost){triviaReset();return@synchronized}
             if(triviaScreens.remove(conn))return@synchronized
-            if(triviaPlayers.containsKey(conn)){triviaBroadcast();return@synchronized}
+            if(triviaPlayers.containsKey(conn)){return@synchronized}
             if(codeScreens.remove(conn))return@synchronized
             if(bidScreens.remove(conn))return@synchronized
             if(conn==codeHost){codeReset();return@synchronized}
@@ -314,15 +317,18 @@ class LocalPartyServer(private val context: Context) {
             if(type=="watch"){
                 if(room.isEmpty()||m.optString("code")!=room)error("Room not found")
                 if(bidScreens.size>=5)error("Too many TV displays")
+                if(c==triviaHost||triviaPlayers.containsKey(c)||c==codeHost||codeGuests.containsKey(c))error("Already in another room")
                 bidScreens.add(c);send(c,JSONObject().put("type","state").put("state",state()));return
             }
             if(type=="create"){
                 if(host!=null)error("This device already hosts a room")
+                if(c==triviaHost||triviaPlayers.containsKey(c)||c==codeHost||codeGuests.containsKey(c))error("Already in another room")
                 reset();room=(100000+random.nextInt(900000)).toString();host=c;sessions[c]="HOST";mode=if(m.optString("mode")=="auto")"auto" else "manual";seconds=m.optInt("seconds",30).takeIf{it in listOf(15,30,45,60)}?:30
                 send(c,JSONObject().put("type","created").put("code",room));broadcast();return
             }
             if(type=="join"){
                 if(room.isEmpty()||m.optString("code")!=room)error("Room not found")
+                if(c==triviaHost||triviaPlayers.containsKey(c)||c==codeHost||codeGuests.containsKey(c))error("Already in another room")
                 if(players.size>=20)error("Room full")
                 if(phase=="results")error("Game ended")
                 val pid=UUID.randomUUID().toString();val name=m.optString("name").trim().take(40).ifBlank{"Player "+(players.size+1)}
