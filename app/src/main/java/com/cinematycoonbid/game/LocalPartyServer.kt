@@ -329,6 +329,13 @@ class LocalPartyServer(private val context: Context) {
             if(type=="join"){
                 if(room.isEmpty()||m.optString("code")!=room)error("Room not found")
                 if(c==triviaHost||triviaPlayers.containsKey(c)||c==codeHost||codeGuests.containsKey(c))error("Already in another room")
+                val token=m.optString("token")
+                val returning=players.values.firstOrNull{it.id==token&&token.isNotBlank()}
+                if(returning!=null){
+                    returning.ws?.let{sessions.remove(it)}
+                    returning.ws=c;sessions[c]=returning.id
+                    send(c,JSONObject().put("type","joined").put("code",room).put("id",returning.id));broadcast();return
+                }
                 if(players.size>=20)error("Room full")
                 if(phase=="results")error("Game ended")
                 val pid=UUID.randomUUID().toString();val name=m.optString("name").trim().take(40).ifBlank{"Player "+(players.size+1)}
