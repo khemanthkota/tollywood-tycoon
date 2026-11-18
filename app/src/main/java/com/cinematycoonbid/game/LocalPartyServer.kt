@@ -45,10 +45,13 @@ class LocalPartyServer(private val context: Context) {
     private var codeTurn="red"
     private var codeWinner=""
     private var codeNote=""
+    private var codeClue=""
+    private var codeClueCount=0
+    private var codeClueTeam=""
     private var codeRevealSeq=0
     private var codeRevealKind=""
     private var codeRevealIndex=-1
-    private fun codeReset(){codeHost=null;codeRoom="";codeGuests.clear();codeTokens.clear();codeNames.clear();codeRoles.clear();codeConnections.clear();codeAutoAssign=true;codeScreens.clear();codeCards=JSONArray();codeTurn="red";codeWinner="";codeNote="";codeRevealSeq=0;codeRevealKind="";codeRevealIndex=-1}
+    private fun codeReset(){codeHost=null;codeRoom="";codeGuests.clear();codeTokens.clear();codeNames.clear();codeRoles.clear();codeConnections.clear();codeAutoAssign=true;codeScreens.clear();codeCards=JSONArray();codeTurn="red";codeWinner="";codeNote="";codeClue="";codeClueCount=0;codeClueTeam="";codeRevealSeq=0;codeRevealKind="";codeRevealIndex=-1}
     private fun codeState(secret:Boolean):JSONObject {
         val cards=JSONArray()
         for(i in 0 until codeCards.length()){
@@ -59,6 +62,7 @@ class LocalPartyServer(private val context: Context) {
         return JSONObject().put("type","code_state").put("code",codeRoom).put("cards",cards)
             .put("turn",codeTurn).put("winner",codeWinner).put("note",codeNote)
             .put("revealSeq",codeRevealSeq).put("revealKind",codeRevealKind).put("revealIndex",codeRevealIndex)
+            .put("clue",codeClue).put("clueCount",codeClueCount).put("clueTeam",codeClueTeam)
             .put("autoAssign",codeAutoAssign)
             .put("members",JSONArray().apply { codeNames.forEach { (token,name)->put(JSONObject().put("id",token).put("name",name).put("role",codeRoles[token]?: "player").put("online",codeConnections.containsValue(token))) } })
     }
@@ -144,10 +148,21 @@ class LocalPartyServer(private val context: Context) {
                 }
                 codeBroadcast()
             }
+            "code_clue"->{
+                if(codeHost==null||codeWinner.isNotEmpty())error("No active game")
+                if(c!=codeHost&&codeGuests[c]!=codeTurn+"Captain")error("Only the current team captain can submit a clue")
+                val clue=m.optString("clue").trim()
+                val count=m.optInt("count",-1)
+                if(clue.isBlank()||clue.length>40||clue.contains(Regex("\\s")))error("Enter one clue word (up to 40 characters)")
+                if(count !in 0..9)error("Clue number must be between 0 and 9")
+                codeClue=clue;codeClueCount=count;codeClueTeam=codeTurn
+                codeNote=codeTurn.uppercase()+" captain clue: "+clue+" · "+count
+                codeBroadcast()
+            }
             "code_guess","code_end"->{
                 if(codeHost==null||codeWinner.isNotEmpty())error("No active game")
                 if(c!=codeHost&&codeGuests[c] !in listOf(codeTurn,"player"))error("Only active-team players can guess")
-                if(type=="code_end"){codeTurn=if(codeTurn=="red")"blue" else "red";codeNote="Turn ended"}
+                if(type=="code_end"){codeTurn=if(codeTurn=="red")"blue" else "red";codeNote="Turn ended";codeClue="";codeClueCount=0;codeClueTeam=""}
                 else{
                     val index=m.optInt("index",-1)
                     if(index !in 0..24)error("Invalid card")
@@ -160,7 +175,7 @@ class LocalPartyServer(private val context: Context) {
                     if(color=="assassin"){codeWinner=if(codeTurn=="red")"blue" else "red";codeNote="Black card! "+codeWinner+" wins"}
                     else if((color=="red"||color=="blue")&&(0 until 25).none { val x=codeCards.getJSONObject(it);x.getString("color")==color&&!x.getBoolean("open") }){
                         codeWinner=color;codeNote=codeWinner+" team completed all cards!"
-                    }else if(color!=codeTurn){codeTurn=if(codeTurn=="red")"blue" else "red";codeNote="Wrong card. Turn switched"}
+                    }else if(color!=codeTurn){codeTurn=if(codeTurn=="red")"blue" else "red";codeNote="Wrong card. Turn switched";codeClue="";codeClueCount=0;codeClueTeam=""}
                     else codeNote="Correct! Guess again or end turn"
                 }
                 codeBroadcast()
