@@ -107,8 +107,8 @@ class LocalPartyServer(private val context: Context) {
                     card.put("open",true)
                     val color=card.getString("color")
                     if(color=="assassin"){codeWinner=if(codeTurn=="red")"blue" else "red";codeNote="Black card! "+codeWinner+" wins"}
-                    else if((0 until 25).none { val x=codeCards.getJSONObject(it);x.getString("color")==codeTurn&&!x.getBoolean("open") }){
-                        codeWinner=codeTurn;codeNote=codeWinner+" wins!"
+                    else if((color=="red"||color=="blue")&&(0 until 25).none { val x=codeCards.getJSONObject(it);x.getString("color")==color&&!x.getBoolean("open") }){
+                        codeWinner=color;codeNote=codeWinner+" team completed all cards!"
                     }else if(color!=codeTurn){codeTurn=if(codeTurn=="red")"blue" else "red";codeNote="Wrong card. Turn switched"}
                     else codeNote="Correct! Guess again or end turn"
                 }
