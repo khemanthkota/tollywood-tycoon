@@ -169,7 +169,7 @@ class LocalPartyServer(private val context: Context) {
             "trivia_create"->{
                 if(triviaHost!=null)error("Trivia room already active")
                 triviaReset();triviaHost=c;triviaRoom=(100000+random.nextInt(900000)).toString()
-                triviaDeck=triviaBank.indices.shuffled(random).take(10)
+                val shuffled=triviaBank.indices.toMutableList();java.util.Collections.shuffle(shuffled,random);triviaDeck=shuffled.take(10)
                 send(c,JSONObject().put("type","trivia_created").put("code",triviaRoom));triviaBroadcast()
             }
             "trivia_watch"->{
