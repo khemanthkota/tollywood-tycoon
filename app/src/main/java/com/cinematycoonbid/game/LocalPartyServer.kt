@@ -379,7 +379,7 @@ class LocalPartyServer(private val context: Context) {
         while(true) {Thread.sleep(250);synchronized(this@LocalPartyServer) {if(running&&deadline>0&&System.currentTimeMillis()>=deadline)endLot()
             if(running&&triviaDeadline>0&&System.currentTimeMillis()>=triviaDeadline&&!triviaRevealed){
                 triviaRevealed=true;triviaDeadline=0L;triviaAdvanceAt=System.currentTimeMillis()+8000L
-                val correct=triviaBank[triviaDeck[triviaIndex]][5].toInt()
+                val correct=triviaQuestions[triviaIndex][5].toInt()
                 triviaPlayers.values.forEach{if(it.answer==correct)it.score+=100}
                 triviaBroadcast()
             }
