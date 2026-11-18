@@ -350,6 +350,12 @@ class LocalPartyServer(private val context: Context) {
                 val correct=triviaBank[triviaDeck[triviaIndex]][5].toInt()
                 triviaPlayers.values.forEach{if(it.answer==correct)it.score+=100}
                 triviaBroadcast()
+            }
+            if(running&&triviaAdvanceAt>0&&System.currentTimeMillis()>=triviaAdvanceAt){
+                triviaAdvanceAt=0L
+                if(triviaIndex+1>=triviaDeck.size){triviaFinished=true;triviaDeadline=0L}
+                else{triviaIndex++;triviaRevealed=false;triviaDeadline=System.currentTimeMillis()+triviaDuration*1000L;triviaPlayers.values.forEach{it.answer=-1}}
+                triviaBroadcast()
             }} }
     }.apply {isDaemon=true;start()} }
 }
