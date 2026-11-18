@@ -7,7 +7,7 @@ $('join').onclick=()=>{const code=$('code').value.trim();if(!/^\d{6}$/.test(code
 $('end').onclick=()=>send({type:'code_end'});const params=new URLSearchParams(location.search);if(params.has('code'))$('code').value=params.get('code');
 if(location.protocol==='http:'||location.protocol==='https:')$('hostOptions').classList.add('hide');
 const savedCode=params.get('code');
-if(savedCode&&/^\\d{6}$/.test(savedCode)&&sessionStorage.getItem('code-token-'+savedCode)){
+if(savedCode&&/^\d{6}$/.test(savedCode)&&sessionStorage.getItem('code-token-'+savedCode)){
     roomCode=savedCode;role=sessionStorage.getItem('code-role-'+savedCode)||'player';$('role').value=role;
     const address=params.get('host')||location.hostname;
     if(address)connect(address,()=>send({type:'code_join',code:savedCode,role,token:sessionStorage.getItem('code-token-'+savedCode)}));
