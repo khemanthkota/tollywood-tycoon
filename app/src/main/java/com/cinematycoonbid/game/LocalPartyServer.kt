@@ -367,7 +367,7 @@ class LocalPartyServer(private val context: Context) {
                     val profit=kotlin.math.round((collections-total)*100.0)/100.0
                     JSONObject().put("name",p.name).put("title",p.movie!!.optString("title","Untitled Film"))
                         .put("totalCost",total).put("collections",collections).put("profit",profit)
-                        .put("roi",kotlin.math.round((profit/total*100.0)*100.0)/100.0)
+                        .put("roi",kotlin.math.round((if(total>0)profit/total*100.0 else 0.0)*100.0)/100.0)
                 }.sortedByDescending{it.getDouble("profit")}
                 scored.forEach{results!!.put(it)}
                 broadcast()
