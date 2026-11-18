@@ -36,11 +36,12 @@ class LocalPartyServer(private val context: Context) {
     private var codeHost:WebSocket?=null
     private var codeRoom=""
     private val codeGuests=linkedMapOf<WebSocket,String>()
+    private val codeTokens=linkedMapOf<String,String>()
     private var codeCards=JSONArray()
     private var codeTurn="red"
     private var codeWinner=""
     private var codeNote=""
-    private fun codeReset(){codeHost=null;codeRoom="";codeGuests.clear();codeScreens.clear();codeCards=JSONArray();codeTurn="red";codeWinner="";codeNote=""}
+    private fun codeReset(){codeHost=null;codeRoom="";codeGuests.clear();codeTokens.clear();codeScreens.clear();codeCards=JSONArray();codeTurn="red";codeWinner="";codeNote=""}
     private fun codeState(secret:Boolean):JSONObject {
         val cards=JSONArray()
         for(i in 0 until codeCards.length()){
@@ -86,13 +87,24 @@ class LocalPartyServer(private val context: Context) {
             }
             "code_join"->{
                 if(codeHost==null||m.optString("code")!=codeRoom)error("Room not found")
+                val token=m.optString("token")
+                val previousRole=codeTokens[token]
+                if(token.isNotBlank()&&previousRole!=null){
+                    val old=codeGuests.entries.firstOrNull{it.value==previousRole}
+                    if(old!=null)codeGuests.remove(old.key)
+                    codeGuests[c]=previousRole
+                    send(c,JSONObject().put("type","code_joined").put("role",previousRole).put("token",token))
+                    codeBroadcast();return true
+                }
                 if(codeGuests.size>=24)error("Room full")
                 if(sessions.containsKey(c)||codeGuests.containsKey(c)||c==codeHost)error("Already joined")
                 val role=m.optString("role")
                 if(role !in listOf("redCaptain","blueCaptain","player"))error("Invalid role")
                 if(role!="player"&&codeGuests.values.contains(role))error("Captain already joined")
                 codeGuests[c]=role
-                send(c,JSONObject().put("type","code_joined").put("role",role))
+                val newToken=UUID.randomUUID().toString()
+                codeTokens[newToken]=role
+                send(c,JSONObject().put("type","code_joined").put("role",role).put("token",newToken))
                 codeBroadcast()
             }
             "code_guess","code_end"->{
