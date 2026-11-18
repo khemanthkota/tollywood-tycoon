@@ -45,7 +45,10 @@ class LocalPartyServer(private val context: Context) {
     private var codeTurn="red"
     private var codeWinner=""
     private var codeNote=""
-    private fun codeReset(){codeHost=null;codeRoom="";codeGuests.clear();codeTokens.clear();codeNames.clear();codeRoles.clear();codeConnections.clear();codeAutoAssign=true;codeScreens.clear();codeCards=JSONArray();codeTurn="red";codeWinner="";codeNote=""}
+    private var codeRevealSeq=0
+    private var codeRevealKind=""
+    private var codeRevealIndex=-1
+    private fun codeReset(){codeHost=null;codeRoom="";codeGuests.clear();codeTokens.clear();codeNames.clear();codeRoles.clear();codeConnections.clear();codeAutoAssign=true;codeScreens.clear();codeCards=JSONArray();codeTurn="red";codeWinner="";codeNote="";codeRevealSeq=0;codeRevealKind="";codeRevealIndex=-1}
     private fun codeState(secret:Boolean):JSONObject {
         val cards=JSONArray()
         for(i in 0 until codeCards.length()){
@@ -55,6 +58,7 @@ class LocalPartyServer(private val context: Context) {
         }
         return JSONObject().put("type","code_state").put("code",codeRoom).put("cards",cards)
             .put("turn",codeTurn).put("winner",codeWinner).put("note",codeNote)
+            .put("revealSeq",codeRevealSeq).put("revealKind",codeRevealKind).put("revealIndex",codeRevealIndex)
             .put("autoAssign",codeAutoAssign)
             .put("members",JSONArray().apply { codeNames.forEach { (token,name)->put(JSONObject().put("id",token).put("name",name).put("role",codeRoles[token]?: "player").put("online",codeConnections.containsValue(token))) } })
     }
@@ -151,6 +155,8 @@ class LocalPartyServer(private val context: Context) {
                     if(card.getBoolean("open"))error("Card already revealed")
                     card.put("open",true)
                     val color=card.getString("color")
+                    codeRevealSeq++;codeRevealIndex=index
+                    codeRevealKind=when(color){"assassin"->"black";"neutral"->"neutral";codeTurn->"correct";else->"opponent"}
                     if(color=="assassin"){codeWinner=if(codeTurn=="red")"blue" else "red";codeNote="Black card! "+codeWinner+" wins"}
                     else if((color=="red"||color=="blue")&&(0 until 25).none { val x=codeCards.getJSONObject(it);x.getString("color")==color&&!x.getBoolean("open") }){
                         codeWinner=color;codeNote=codeWinner+" team completed all cards!"
