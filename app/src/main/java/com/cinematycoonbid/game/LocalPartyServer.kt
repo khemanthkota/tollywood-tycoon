@@ -128,6 +128,7 @@ class LocalPartyServer(private val context: Context) {
     private var triviaRevealed=false
     private var triviaFinished=false
     private var triviaDeadline=0L
+    private var triviaAdvanceAt=0L
     private var triviaDuration=30
     private var triviaDeck=listOf<Int>()
     // Question, four options, correct answer index. Curated starter set; expand using the existing trivia dataset later.
@@ -148,7 +149,7 @@ class LocalPartyServer(private val context: Context) {
         listOf("Which film features the character Mahavir Singh Phogat?","Dangal","Lagaan","PK","Sultan","0"),
         listOf("Which film stars Keanu Reeves as a retired assassin?","The Matrix","John Wick","Speed","Constantine","1")
     )
-    private fun triviaReset(){triviaHost=null;triviaRoom="";triviaPlayers.clear();triviaScreens.clear();triviaIndex=-1;triviaRevealed=false;triviaFinished=false;triviaDeadline=0L;triviaDeck=emptyList()}
+    private fun triviaReset(){triviaHost=null;triviaRoom="";triviaPlayers.clear();triviaScreens.clear();triviaIndex=-1;triviaRevealed=false;triviaFinished=false;triviaDeadline=0L;triviaAdvanceAt=0L;triviaDeck=emptyList()}
     private fun triviaState():JSONObject{
         val q=if(triviaIndex in triviaDeck.indices)triviaBank[triviaDeck[triviaIndex]] else null
         val players=JSONArray()
@@ -194,6 +195,7 @@ class LocalPartyServer(private val context: Context) {
                 if(c!=triviaHost)error("Host only")
                 if(triviaFinished)error("Round finished")
                 if(triviaIndex>=0&&!triviaRevealed)error("Reveal answers first")
+                triviaAdvanceAt=0L
                 if(triviaIndex+1>=triviaDeck.size){triviaFinished=true;triviaDeadline=0L}
                 else{triviaIndex++;triviaRevealed=false;triviaDeadline=System.currentTimeMillis()+triviaDuration*1000L;triviaPlayers.values.forEach{it.answer=-1}}
                 triviaBroadcast()
@@ -208,7 +210,7 @@ class LocalPartyServer(private val context: Context) {
             "trivia_reveal"->{
                 if(c!=triviaHost)error("Host only")
                 if(triviaIndex !in triviaDeck.indices||triviaRevealed)error("No active unanswered question")
-                triviaRevealed=true;triviaDeadline=0L
+                triviaRevealed=true;triviaDeadline=0L;triviaAdvanceAt=System.currentTimeMillis()+8000L
                 val correct=triviaBank[triviaDeck[triviaIndex]][5].toInt()
                 triviaPlayers.values.forEach{if(it.answer==correct)it.score+=100}
                 triviaBroadcast()
@@ -344,7 +346,7 @@ class LocalPartyServer(private val context: Context) {
     init { Thread {
         while(true) {Thread.sleep(250);synchronized(this@LocalPartyServer) {if(running&&deadline>0&&System.currentTimeMillis()>=deadline)endLot()
             if(running&&triviaDeadline>0&&System.currentTimeMillis()>=triviaDeadline&&!triviaRevealed){
-                triviaRevealed=true;triviaDeadline=0L
+                triviaRevealed=true;triviaDeadline=0L;triviaAdvanceAt=System.currentTimeMillis()+8000L
                 val correct=triviaBank[triviaDeck[triviaIndex]][5].toInt()
                 triviaPlayers.values.forEach{if(it.answer==correct)it.score+=100}
                 triviaBroadcast()
