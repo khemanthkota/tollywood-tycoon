@@ -39,12 +39,13 @@ class LocalPartyServer(private val context: Context) {
     private val codeTokens=linkedMapOf<String,String>()
     private val codeNames=linkedMapOf<String,String>()
     private val codeRoles=linkedMapOf<String,String>()
+    private var codeAutoAssign=true
     private val codeConnections=linkedMapOf<WebSocket,String>()
     private var codeCards=JSONArray()
     private var codeTurn="red"
     private var codeWinner=""
     private var codeNote=""
-    private fun codeReset(){codeHost=null;codeRoom="";codeGuests.clear();codeTokens.clear();codeNames.clear();codeRoles.clear();codeConnections.clear();codeScreens.clear();codeCards=JSONArray();codeTurn="red";codeWinner="";codeNote=""}
+    private fun codeReset(){codeHost=null;codeRoom="";codeGuests.clear();codeTokens.clear();codeNames.clear();codeRoles.clear();codeConnections.clear();codeAutoAssign=true;codeScreens.clear();codeCards=JSONArray();codeTurn="red";codeWinner="";codeNote=""}
     private fun codeState(secret:Boolean):JSONObject {
         val cards=JSONArray()
         for(i in 0 until codeCards.length()){
@@ -54,6 +55,7 @@ class LocalPartyServer(private val context: Context) {
         }
         return JSONObject().put("type","code_state").put("code",codeRoom).put("cards",cards)
             .put("turn",codeTurn).put("winner",codeWinner).put("note",codeNote)
+            .put("autoAssign",codeAutoAssign)
             .put("members",JSONArray().apply { codeNames.forEach { (token,name)->put(JSONObject().put("id",token).put("name",name).put("role",codeRoles[token]?: "player").put("online",codeConnections.containsValue(token))) } })
     }
     private fun codeBroadcast(){
@@ -75,7 +77,7 @@ class LocalPartyServer(private val context: Context) {
                     val word=names.optString(i).trim()
                     if(word.isBlank()||word.length>60||!clean.add(word))error("Invalid or duplicate word")
                 }
-                codeReset();codeHost=c;codeRoom=(100000+random.nextInt(900000)).toString()
+                codeReset();codeAutoAssign=m.optBoolean("autoAssign",true);codeHost=c;codeRoom=(100000+random.nextInt(900000)).toString()
                 val colors=(List(9){"red"}+List(8){"blue"}+List(7){"neutral"}+listOf("assassin")).toMutableList()
                 java.util.Collections.shuffle(colors,random)
                 clean.forEachIndexed { i,name->codeCards.put(JSONObject().put("name",name).put("color",colors[i]).put("open",false)) }
@@ -100,14 +102,25 @@ class LocalPartyServer(private val context: Context) {
                     val name=m.optString("name").trim().take(32)
                     if(name.isBlank())error("Enter your name to join")
                     codeNames[id]=name
-                    codeRoles[id]="player"
-                    codeTokens[id]="player"
+                    val assigned=if(!codeAutoAssign)"player" else {
+                        val redCount=codeRoles.values.count{it=="red"||it=="redCaptain"}
+                        val blueCount=codeRoles.values.count{it=="blue"||it=="blueCaptain"}
+                        val team=if(redCount<=blueCount)"red" else "blue"
+                        if(!codeRoles.values.contains(team+"Captain"))team+"Captain" else team
+                    }
+                    codeRoles[id]=assigned
+                    codeTokens[id]=assigned
                 }
                 val previousSockets=codeConnections.filterValues{it==id}.keys.toList()
                 previousSockets.forEach{ codeConnections.remove(it);codeGuests.remove(it) }
                 codeConnections[c]=id
                 codeGuests[c]=codeRoles[id]?: "player"
                 send(c,JSONObject().put("type","code_joined").put("role",codeRoles[id]).put("token",id))
+                codeBroadcast()
+            }
+            "code_assignment_mode"->{
+                if(c!=codeHost)error("Only the organizer can change assignment mode")
+                codeAutoAssign=m.optBoolean("autoAssign",true)
                 codeBroadcast()
             }
             "code_assign"->{
