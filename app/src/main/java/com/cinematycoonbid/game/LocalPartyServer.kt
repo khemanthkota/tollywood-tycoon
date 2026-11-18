@@ -118,11 +118,108 @@ class LocalPartyServer(private val context: Context) {
         return true
     }
 
+
+    private data class TriviaPlayer(val name:String,var score:Int=0,var answer:Int=-1)
+    private val triviaPlayers=linkedMapOf<WebSocket,TriviaPlayer>()
+    private val triviaScreens=linkedSetOf<WebSocket>()
+    private var triviaHost:WebSocket?=null
+    private var triviaRoom=""
+    private var triviaIndex=-1
+    private var triviaRevealed=false
+    private var triviaFinished=false
+    private var triviaDeck=listOf<Int>()
+    // Question, four options, correct answer index. Curated starter set; expand using the existing trivia dataset later.
+    private val triviaBank=listOf(
+        listOf("Who directed RRR?","S. S. Rajamouli","Sukumar","Trivikram","Shankar","0"),
+        listOf("Which movie features the character Pushpa Raj?","Salaar","Pushpa: The Rise","Jersey","Devara","1"),
+        listOf("Which film features the song Naatu Naatu?","Baahubali","RRR","Pushpa","Magadheera","1"),
+        listOf("Who directed Inception?","James Cameron","Christopher Nolan","Steven Spielberg","Ridley Scott","1"),
+        listOf("Which movie is set aboard an ocean liner?","Avatar","Titanic","Interstellar","Gladiator","1"),
+        listOf("Who played the lead role in Dangal?","Shah Rukh Khan","Ranveer Singh","Aamir Khan","Hrithik Roshan","2"),
+        listOf("Which film features the character Rancho?","3 Idiots","PK","Lagaan","Dangal","0"),
+        listOf("Which film features the fictional world Pandora?","Star Wars","Avatar","The Matrix","Jurassic Park","1"),
+        listOf("Who directed Jurassic Park (1993)?","James Cameron","Christopher Nolan","Steven Spielberg","George Lucas","2"),
+        listOf("Which movie features the character Jack Dawson?","Titanic","Avatar","The Matrix","Oppenheimer","0"),
+        listOf("Who directed Baahubali: The Beginning?","S. S. Rajamouli","Shankar","Sukumar","Mani Ratnam","0"),
+        listOf("Which superhero uses a shield made of vibranium?","Iron Man","Captain America","Thor","Batman","1"),
+        listOf("Who played the title character in Barbie (2023)?","Emma Stone","Margot Robbie","Anne Hathaway","Gal Gadot","1"),
+        listOf("Which film features the character Mahavir Singh Phogat?","Dangal","Lagaan","PK","Sultan","0"),
+        listOf("Which film stars Keanu Reeves as a retired assassin?","The Matrix","John Wick","Speed","Constantine","1")
+    )
+    private fun triviaReset(){triviaHost=null;triviaRoom="";triviaPlayers.clear();triviaScreens.clear();triviaIndex=-1;triviaRevealed=false;triviaFinished=false;triviaDeck=emptyList()}
+    private fun triviaState():JSONObject{
+        val q=if(triviaIndex in triviaDeck.indices)triviaBank[triviaDeck[triviaIndex]] else null
+        val players=JSONArray()
+        triviaPlayers.values.sortedWith(compareByDescending<TriviaPlayer>{it.score}.thenBy{it.name}).forEach{players.put(JSONObject().put("name",it.name).put("score",it.score).put("answered",it.answer>=0))}
+        return JSONObject().put("type","trivia_state").put("code",triviaRoom).put("index",triviaIndex).put("total",triviaDeck.size)
+            .put("finished",triviaFinished).put("revealed",triviaRevealed).put("question",q?.get(0)?:JSONObject.NULL)
+            .put("options",if(q==null)JSONArray() else JSONArray(q.subList(1,5)))
+            .put("correct",if(triviaRevealed&&q!=null)q[5].toInt() else JSONObject.NULL).put("players",players)
+    }
+    private fun triviaBroadcast(){
+        val public=triviaState()
+        send(triviaHost,public)
+        triviaScreens.forEach{send(it,public)}
+        triviaPlayers.forEach{(c,p)->send(c,JSONObject(public.toString()).put("yourAnswer",p.answer))}
+    }
+    private fun triviaHandle(c:WebSocket,m:JSONObject):Boolean{
+        val type=m.optString("type")
+        if(!type.startsWith("trivia_"))return false
+        when(type){
+            "trivia_create"->{
+                if(triviaHost!=null)error("Trivia room already active")
+                triviaReset();triviaHost=c;triviaRoom=(100000+random.nextInt(900000)).toString()
+                triviaDeck=triviaBank.indices.shuffled(random).take(10)
+                send(c,JSONObject().put("type","trivia_created").put("code",triviaRoom));triviaBroadcast()
+            }
+            "trivia_watch"->{
+                if(triviaHost==null||m.optString("code")!=triviaRoom)error("Room not found")
+                if(triviaScreens.size>=5)error("Too many TV displays")
+                triviaScreens.add(c);send(c,triviaState())
+            }
+            "trivia_join"->{
+                if(triviaHost==null||m.optString("code")!=triviaRoom||triviaFinished)error("Room not found or game finished")
+                if(triviaPlayers.size>=20)error("Room full")
+                if(triviaPlayers.containsKey(c)||c==triviaHost)error("Already joined")
+                val name=m.optString("name").trim().take(24)
+                if(name.isBlank())error("Enter your name")
+                if(triviaPlayers.values.any{it.name.equals(name,true)})error("Name already in use")
+                triviaPlayers[c]=TriviaPlayer(name)
+                send(c,JSONObject().put("type","trivia_joined"));triviaBroadcast()
+            }
+            "trivia_next"->{
+                if(c!=triviaHost)error("Host only")
+                if(triviaFinished)error("Round finished")
+                if(triviaIndex>=0&&!triviaRevealed)error("Reveal answers first")
+                if(triviaIndex+1>=triviaDeck.size){triviaFinished=true}
+                else{triviaIndex++;triviaRevealed=false;triviaPlayers.values.forEach{it.answer=-1}}
+                triviaBroadcast()
+            }
+            "trivia_answer"->{
+                val player=triviaPlayers[c]?:error("Join as a player first")
+                if(triviaIndex !in triviaDeck.indices||triviaRevealed||triviaFinished||player.answer>=0)error("Answer unavailable")
+                val answer=m.optInt("answer",-1)
+                if(answer !in 0..3)error("Invalid answer")
+                player.answer=answer;triviaBroadcast()
+            }
+            "trivia_reveal"->{
+                if(c!=triviaHost)error("Host only")
+                if(triviaIndex !in triviaDeck.indices||triviaRevealed)error("No active unanswered question")
+                triviaRevealed=true
+                val correct=triviaBank[triviaDeck[triviaIndex]][5].toInt()
+                triviaPlayers.values.forEach{if(it.answer==correct)it.score+=100}
+                triviaBroadcast()
+            }
+            else->error("Unknown Trivia action")
+        }
+        return true
+    }
+
     private data class Player(val id:String,val name:String,var budget:Int=100,val contracts:JSONArray=JSONArray(),var movie:JSONObject?=null,var ws:WebSocket?=null)
     private val http = object : NanoHTTPD(8080) {
         override fun serve(session: IHTTPSession): Response {
             val path = session.uri.substringBefore('?')
-            val filename = when(path) { "/", "/join", "/multiplayer.html" -> "multiplayer.html"; "/codewords", "/codewords-lan.html" -> "codewords-lan.html"; "/tv.html" -> "tv.html"; else -> "" }
+            val filename = when(path) { "/", "/join", "/multiplayer.html" -> "multiplayer.html"; "/codewords", "/codewords-lan.html" -> "codewords-lan.html"; "/tv.html" -> "tv.html"; "/trivia-lan.html" -> "trivia-lan.html"; else -> "" }
             if(filename.isEmpty()) return newFixedLengthResponse(Response.Status.NOT_FOUND,"text/plain","Not found")
             return try {
                 val body=context.assets.open(filename).use { it.readBytes() }
@@ -136,6 +233,9 @@ class LocalPartyServer(private val context: Context) {
     private val socket = object: WebSocketServer(InetSocketAddress("0.0.0.0",3000)) {
         override fun onOpen(conn:WebSocket, handshake:ClientHandshake) {}
         override fun onClose(conn:WebSocket, code:Int, reason:String, remote:Boolean) = synchronized(this@LocalPartyServer) {
+            if(conn==triviaHost){triviaReset();return@synchronized}
+            if(triviaScreens.remove(conn))return@synchronized
+            if(triviaPlayers.remove(conn)!=null){triviaBroadcast();return@synchronized}
             if(codeScreens.remove(conn))return@synchronized
             if(bidScreens.remove(conn))return@synchronized
             if(conn==codeHost){codeReset();return@synchronized}
@@ -145,7 +245,7 @@ class LocalPartyServer(private val context: Context) {
             else if(id!=null) { players[id]?.ws=null; broadcast() }
         }
         override fun onMessage(conn:WebSocket, message:String) = synchronized(this@LocalPartyServer) {
-            try { if(message.length>8192) error("Message too large"); val payload=JSONObject(message);if(!codeHandle(conn,payload))handle(conn,payload) }
+            try { if(message.length>8192) error("Message too large"); val payload=JSONObject(message);if(!triviaHandle(conn,payload)&&!codeHandle(conn,payload))handle(conn,payload) }
             catch(e:Exception) { send(conn,JSONObject().put("type","error").put("message",e.message?:"Invalid request")) }
         }
         override fun onError(conn:WebSocket?, ex:Exception) {}
@@ -155,7 +255,7 @@ class LocalPartyServer(private val context: Context) {
         if(!running) { http.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false); socket.start(); running=true }
         return address() ?: ""
     }
-    fun stop() = synchronized(this) { if(running){socket.stop(1000);http.stop();running=false};reset();codeReset() }
+    fun stop() = synchronized(this) { if(running){socket.stop(1000);http.stop();running=false};reset();codeReset();triviaReset() }
     fun address():String? {
         val interfaces=NetworkInterface.getNetworkInterfaces() ?: return null
         for(n in interfaces) {
