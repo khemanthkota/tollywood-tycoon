@@ -131,6 +131,15 @@ class LocalPartyServer(private val context: Context) {
     private var triviaAdvanceAt=0L
     private var triviaDuration=30
     private var triviaDeck=listOf<Int>()
+    private var triviaQuestions=listOf<List<String>>()
+    private val triviaFullBank:List<Pair<String,List<String>>> by lazy {
+        val raw=context.assets.open("trivia-lan-bank.json").bufferedReader().use{it.readText()}
+        val arr=JSONArray(raw)
+        (0 until arr.length()).map { i->
+            val item=arr.getJSONObject(i);val options=item.getJSONArray("options")
+            item.getString("industry") to (listOf(item.getString("question"))+(0 until 4).map{options.getString(it)}+listOf(item.getInt("correct").toString()))
+        }
+    }
     // Question, four options, correct answer index. Curated starter set; expand using the existing trivia dataset later.
     private val triviaBank=listOf(
         listOf("Who directed RRR?","S. S. Rajamouli","Sukumar","Trivikram","Shankar","0"),
@@ -149,9 +158,9 @@ class LocalPartyServer(private val context: Context) {
         listOf("Which film features the character Mahavir Singh Phogat?","Dangal","Lagaan","PK","Sultan","0"),
         listOf("Which film stars Keanu Reeves as a retired assassin?","The Matrix","John Wick","Speed","Constantine","1")
     )
-    private fun triviaReset(){triviaHost=null;triviaRoom="";triviaPlayers.clear();triviaScreens.clear();triviaIndex=-1;triviaRevealed=false;triviaFinished=false;triviaDeadline=0L;triviaAdvanceAt=0L;triviaDeck=emptyList()}
+    private fun triviaReset(){triviaHost=null;triviaRoom="";triviaPlayers.clear();triviaScreens.clear();triviaIndex=-1;triviaRevealed=false;triviaFinished=false;triviaDeadline=0L;triviaAdvanceAt=0L;triviaDeck=emptyList();triviaQuestions=emptyList()}
     private fun triviaState():JSONObject{
-        val q=if(triviaIndex in triviaDeck.indices)triviaBank[triviaDeck[triviaIndex]] else null
+        val q=if(triviaIndex in triviaQuestions.indices)triviaQuestions[triviaIndex] else null
         val players=JSONArray()
         triviaPlayers.values.sortedWith(compareByDescending<TriviaPlayer>{it.score}.thenBy{it.name}).forEach{players.put(JSONObject().put("name",it.name).put("score",it.score).put("answered",it.answer>=0))}
         return JSONObject().put("type","trivia_state").put("code",triviaRoom).put("index",triviaIndex).put("total",triviaDeck.size)
@@ -172,7 +181,16 @@ class LocalPartyServer(private val context: Context) {
             "trivia_create"->{
                 if(triviaHost!=null)error("Trivia room already active")
                 triviaReset();triviaHost=c;triviaRoom=(100000+random.nextInt(900000)).toString()
-                val shuffled=triviaBank.indices.toMutableList();java.util.Collections.shuffle(shuffled,random);triviaDeck=shuffled.take(10)
+                val industry=m.optString("industry","all")
+                val candidates=triviaFullBank.filter{industry=="all"||it.first==industry}.map{it.second}.toMutableList()
+                if(candidates.size<10)error("Not enough questions for this industry")
+                java.util.Collections.shuffle(candidates,random)
+                triviaQuestions=candidates.take(10).map{q->
+                    val answer=q[q[5].toInt()+1]
+                    val options=q.subList(1,5).toMutableList();java.util.Collections.shuffle(options,random)
+                    listOf(q[0])+options+listOf(options.indexOf(answer).toString())
+                }
+                triviaDeck=triviaQuestions.indices.toList()
                 triviaDuration=m.optInt("seconds",30).takeIf{it in listOf(15,30,45,60)}?:30
                 send(c,JSONObject().put("type","trivia_created").put("code",triviaRoom));triviaBroadcast()
             }
@@ -211,7 +229,7 @@ class LocalPartyServer(private val context: Context) {
                 if(c!=triviaHost)error("Host only")
                 if(triviaIndex !in triviaDeck.indices||triviaRevealed)error("No active unanswered question")
                 triviaRevealed=true;triviaDeadline=0L;triviaAdvanceAt=System.currentTimeMillis()+8000L
-                val correct=triviaBank[triviaDeck[triviaIndex]][5].toInt()
+                val correct=triviaQuestions[triviaIndex][5].toInt()
                 triviaPlayers.values.forEach{if(it.answer==correct)it.score+=100}
                 triviaBroadcast()
             }
