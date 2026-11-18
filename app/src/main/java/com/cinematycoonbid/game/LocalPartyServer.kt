@@ -351,15 +351,26 @@ class LocalPartyServer(private val context: Context) {
             "mode" -> {if(!isHost||lot!=null)error("Host only, between lots");mode=if(m.optString("mode")=="auto")"auto" else "manual";seconds=m.optInt("seconds",30).takeIf{it in listOf(15,30,45,60)}?:30;broadcast()}
             "submit" -> {
                 if(isHost||p==null||phase!="movies")error("Movie submissions unavailable")
-                val ids=m.optJSONArray("ids")?:JSONArray();val selected=mutableListOf<JSONObject>()
-                for(i in 0 until ids.length()) {val n=ids.optInt(i,-1);if(n<0||n>=p.contracts.length()||selected.any{it===p.contracts.optJSONObject(n)})error("Invalid cast");selected.add(p.contracts.getJSONObject(n))}
-                if(!listOf("director","actor","actress").all{k->selected.any{it.optString("kind")==k}})error("Select director, actor and actress")
+                val ids=m.optJSONArray("ids")?:JSONArray();val selected=mutableListOf<JSONObject>();val used=mutableSetOf<Int>()
+                for(i in 0 until ids.length()) {val n=ids.optInt(i,-1);if(n<0||n>=p.contracts.length()||!used.add(n))error("Invalid cast");selected.add(p.contracts.getJSONObject(n))}
+                if(selected.count{it.optString("kind")=="director"}!=1||selected.none{it.optString("kind")=="actor"}||selected.none{it.optString("kind")=="actress"})error("Select exactly one director and at least one actor and actress")
                 val cast=selected.sumOf{it.optInt("price")};val production=m.optInt("production",-1)
                 if(production<kotlin.math.ceil(cast*.3).toInt()||production>p.budget)error("Invalid production budget")
-                p.movie=JSONObject().put("castCost",cast).put("production",production);broadcast()
+                p.movie=JSONObject().put("castCost",cast).put("production",production).put("title",m.optString("title","Untitled Film").trim().take(70));broadcast()
             }
             "results" -> {if(!isHost||phase!="movies")error("Host only during movie making");if(players.values.any{it.movie==null})error("Wait for all players")
-                phase="results";results=JSONArray();players.values.forEach{p->results!!.put(JSONObject().put("name",p.name).put("totalCost",p.movie!!.getInt("castCost")+p.movie!!.getInt("production")).put("profit",JSONObject.NULL))};broadcast()
+                phase="results";results=JSONArray()
+                val scored=players.values.map{p->
+                    val cast=p.movie!!.getInt("castCost");val production=p.movie!!.getInt("production");val total=cast+production
+                    // Fictional deterministic LAN game economy, not actual box office.
+                    val collections=kotlin.math.round((production*2.0+cast*1.25+22.0)*100.0)/100.0
+                    val profit=kotlin.math.round((collections-total)*100.0)/100.0
+                    JSONObject().put("name",p.name).put("title",p.movie!!.optString("title","Untitled Film"))
+                        .put("totalCost",total).put("collections",collections).put("profit",profit)
+                        .put("roi",kotlin.math.round((profit/total*100.0)*100.0)/100.0)
+                }.sortedByDescending{it.getDouble("profit")}
+                scored.forEach{results!!.put(it)}
+                broadcast()
             }
             else -> error("Unknown action")
         }
