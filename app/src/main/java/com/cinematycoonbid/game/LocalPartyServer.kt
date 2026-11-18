@@ -119,7 +119,7 @@ class LocalPartyServer(private val context: Context) {
     }
 
 
-    private data class TriviaPlayer(val name:String,var score:Int=0,var answer:Int=-1)
+    private data class TriviaPlayer(val name:String,val token:String=UUID.randomUUID().toString(),var score:Int=0,var answer:Int=-1)
     private val triviaPlayers=linkedMapOf<WebSocket,TriviaPlayer>()
     private val triviaScreens=linkedSetOf<WebSocket>()
     private var triviaHost:WebSocket?=null
@@ -201,13 +201,16 @@ class LocalPartyServer(private val context: Context) {
             }
             "trivia_join"->{
                 if(triviaHost==null||m.optString("code")!=triviaRoom||triviaFinished)error("Room not found or game finished")
-                if(triviaPlayers.size>=20)error("Room full")
                 if(triviaPlayers.containsKey(c)||c==triviaHost)error("Already joined")
+                val resume=m.optString("token")
+                val old=triviaPlayers.entries.firstOrNull{it.value.token==resume&&resume.isNotBlank()}
+                if(old!=null){val player=old.value;triviaPlayers.remove(old.key);triviaPlayers[c]=player;send(c,JSONObject().put("type","trivia_joined").put("token",player.token));triviaBroadcast();return}
+                if(triviaPlayers.size>=20)error("Room full")
                 val name=m.optString("name").trim().take(24)
                 if(name.isBlank())error("Enter your name")
                 if(triviaPlayers.values.any{it.name.equals(name,true)})error("Name already in use")
-                triviaPlayers[c]=TriviaPlayer(name)
-                send(c,JSONObject().put("type","trivia_joined"));triviaBroadcast()
+                val player=TriviaPlayer(name);triviaPlayers[c]=player
+                send(c,JSONObject().put("type","trivia_joined").put("token",player.token));triviaBroadcast()
             }
             "trivia_next"->{
                 if(c!=triviaHost)error("Host only")
@@ -258,7 +261,7 @@ class LocalPartyServer(private val context: Context) {
         override fun onClose(conn:WebSocket, code:Int, reason:String, remote:Boolean) = synchronized(this@LocalPartyServer) {
             if(conn==triviaHost){triviaReset();return@synchronized}
             if(triviaScreens.remove(conn))return@synchronized
-            if(triviaPlayers.remove(conn)!=null){triviaBroadcast();return@synchronized}
+            if(triviaPlayers.containsKey(conn)){triviaBroadcast();return@synchronized}
             if(codeScreens.remove(conn))return@synchronized
             if(bidScreens.remove(conn))return@synchronized
             if(conn==codeHost){codeReset();return@synchronized}
