@@ -37,11 +37,14 @@ class LocalPartyServer(private val context: Context) {
     private var codeRoom=""
     private val codeGuests=linkedMapOf<WebSocket,String>()
     private val codeTokens=linkedMapOf<String,String>()
+    private val codeNames=linkedMapOf<String,String>()
+    private val codeRoles=linkedMapOf<String,String>()
+    private val codeConnections=linkedMapOf<WebSocket,String>()
     private var codeCards=JSONArray()
     private var codeTurn="red"
     private var codeWinner=""
     private var codeNote=""
-    private fun codeReset(){codeHost=null;codeRoom="";codeGuests.clear();codeTokens.clear();codeScreens.clear();codeCards=JSONArray();codeTurn="red";codeWinner="";codeNote=""}
+    private fun codeReset(){codeHost=null;codeRoom="";codeGuests.clear();codeTokens.clear();codeNames.clear();codeRoles.clear();codeConnections.clear();codeScreens.clear();codeCards=JSONArray();codeTurn="red";codeWinner="";codeNote=""}
     private fun codeState(secret:Boolean):JSONObject {
         val cards=JSONArray()
         for(i in 0 until codeCards.length()){
@@ -51,6 +54,7 @@ class LocalPartyServer(private val context: Context) {
         }
         return JSONObject().put("type","code_state").put("code",codeRoom).put("cards",cards)
             .put("turn",codeTurn).put("winner",codeWinner).put("note",codeNote)
+            .put("members",JSONArray().apply { codeNames.forEach { (token,name)->put(JSONObject().put("id",token).put("name",name).put("role",codeRoles[token]?: "player").put("online",codeConnections.containsValue(token))) } })
     }
     private fun codeBroadcast(){
         send(codeHost,codeState(false))
@@ -87,29 +91,44 @@ class LocalPartyServer(private val context: Context) {
             }
             "code_join"->{
                 if(codeHost==null||m.optString("code")!=codeRoom)error("Room not found")
+                if(sessions.containsKey(c)||c==codeHost||codeScreens.contains(c))error("Already in another room")
                 val token=m.optString("token")
-                val previousRole=codeTokens[token]
-                if(token.isNotBlank()&&previousRole!=null){
-                    val old=codeGuests.entries.firstOrNull{it.value==previousRole}
-                    if(old!=null)codeGuests.remove(old.key)
-                    codeGuests[c]=previousRole
-                    send(c,JSONObject().put("type","code_joined").put("role",previousRole).put("token",token))
-                    codeBroadcast();return true
+                val existing=token.isNotBlank()&&codeNames.containsKey(token)
+                val id=if(existing)token else UUID.randomUUID().toString()
+                if(!existing){
+                    if(codeNames.size>=24)error("Room full")
+                    val name=m.optString("name").trim().take(32)
+                    if(name.isBlank())error("Enter your name to join")
+                    codeNames[id]=name
+                    codeRoles[id]="player"
+                    codeTokens[id]="player"
                 }
-                if(codeGuests.size>=24)error("Room full")
-                if(sessions.containsKey(c)||codeGuests.containsKey(c)||c==codeHost)error("Already joined")
+                codeConnections.entries.removeAll { it.value==id }
+                codeConnections[c]=id
+                codeGuests[c]=codeRoles[id]?: "player"
+                send(c,JSONObject().put("type","code_joined").put("role",codeRoles[id]).put("token",id))
+                codeBroadcast()
+            }
+            "code_assign"->{
+                if(c!=codeHost)error("Only the organizer can assign roles")
+                val id=m.optString("id")
+                if(!codeNames.containsKey(id))error("Player not found")
                 val role=m.optString("role")
-                if(role !in listOf("redCaptain","blueCaptain","player"))error("Invalid role")
-                if(role!="player"&&codeGuests.values.contains(role))error("Captain already joined")
-                codeGuests[c]=role
-                val newToken=UUID.randomUUID().toString()
-                codeTokens[newToken]=role
-                send(c,JSONObject().put("type","code_joined").put("role",role).put("token",newToken))
+                if(role !in listOf("player","red","blue","redCaptain","blueCaptain"))error("Invalid role")
+                if(role.endsWith("Captain")&&codeRoles.any{it.key!=id&&it.value==role})error("Captain already assigned")
+                codeRoles[id]=role
+                codeTokens[id]=role
+                codeConnections.forEach { (socket,memberId)->
+                    if(memberId==id){
+                        codeGuests[socket]=role
+                        send(socket,JSONObject().put("type","code_joined").put("role",role).put("token",id))
+                    }
+                }
                 codeBroadcast()
             }
             "code_guess","code_end"->{
                 if(codeHost==null||codeWinner.isNotEmpty())error("No active game")
-                if(c!=codeHost&&codeGuests[c]!="player")error("Only players can guess")
+                if(c!=codeHost&&codeGuests[c] !in listOf(codeTurn,"player"))error("Only active-team players can guess")
                 if(type=="code_end"){codeTurn=if(codeTurn=="red")"blue" else "red";codeNote="Turn ended"}
                 else{
                     val index=m.optInt("index",-1)
