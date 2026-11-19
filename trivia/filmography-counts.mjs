@@ -47,10 +47,10 @@ export function generateCountQuestions(credits, role = "director", cutoff = "202
     questions.push({
       id:`film-count-${role}-${cutoff}-${i}`,
       category:"filmography", difficulty:"hard", cutoff,
-      prompt:`As of ${cutoff}, who has the most verified released feature-film credits as ${role} among these four?`,
+      prompt:`In this curated dataset through ${cutoff}, who has the most listed feature-film credits as ${role}?`,
       options:options.map(p=>p.name), answer:options[0].name,
       explanation:options.map(p=>`${p.name}: ${p[role]}`).join("; "),
-      verified:true
+      verified:false, datasetOnly:true
     });
   }
   return questions;
