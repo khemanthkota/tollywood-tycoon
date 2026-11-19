@@ -9,9 +9,9 @@
 export const ROLES = ["actor", "director", "producer", "writer"];
 const isVerified = c => c && c.personId && c.filmId &&
   c.kind === "feature" && c.status === "released" &&
-  /^\\d{4}-\\d{2}-\\d{2}$/.test(c.releaseDate || "") &&
-  Array.isArray(c.sourceUrls) && c.sourceUrls.some(u => /^https:\\/\\//.test(u)) &&
-  /^\\d{4}-\\d{2}-\\d{2}$/.test(c.verifiedAt || "") &&
+  /^\d{4}-\d{2}-\d{2}$/.test(c.releaseDate || "") &&
+  Array.isArray(c.sourceUrls) && c.sourceUrls.some(u => /^https:\/\//.test(u)) &&
+  /^\d{4}-\d{2}-\d{2}$/.test(c.verifiedAt || "") &&
   Array.isArray(c.roles) && c.roles.some(r => ROLES.includes(r));
 export function summarizeFilmography(credits, cutoff = "9999-12-31") {
   const byPerson = new Map();
