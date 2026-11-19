@@ -199,12 +199,12 @@ class LocalPartyServer(private val context: Context) {
     private var triviaDuration=30
     private var triviaDeck=listOf<Int>()
     private var triviaQuestions=listOf<List<String>>()
-    private val triviaFullBank:List<Pair<String,List<String>>> by lazy {
+    private val triviaFullBank:List<Triple<String,String,List<String>>> by lazy {
         val raw=context.assets.open("trivia-lan-bank.json").bufferedReader().use{it.readText()}
         val arr=JSONArray(raw)
         (0 until arr.length()).map { i->
             val item=arr.getJSONObject(i);val options=item.getJSONArray("options")
-            item.getString("industry") to (listOf(item.getString("question"))+(0 until 4).map{options.getString(it)}+listOf(item.getInt("correct").toString()))
+            Triple(item.getString("industry"),item.optString("difficulty","easy"),listOf(item.getString("question"))+(0 until 4).map{options.getString(it)}+listOf(item.getInt("correct").toString()))
         }
     }
     // Question, four options, correct answer index. Curated starter set; expand using the existing trivia dataset later.
@@ -250,7 +250,8 @@ class LocalPartyServer(private val context: Context) {
                 if(sessions.containsKey(c)||codeGuests.containsKey(c)||c==codeHost)error("Already in another room")
                 triviaReset();triviaHost=c;triviaRoom=(100000+random.nextInt(900000)).toString()
                 val industry=m.optString("industry","all")
-                val candidates=triviaFullBank.filter{industry=="all"||it.first==industry}.map{it.second}.toMutableList()
+                val difficulty=m.optString("difficulty","hard").takeIf{it in listOf("easy","medium","hard","expert")} ?: "hard"
+                val candidates=triviaFullBank.filter{(industry=="all"||it.first==industry) && when(difficulty){"easy"->it.second=="easy";"medium"->true;else->it.second=="hard"}}.map{it.third}.toMutableList()
                 if(candidates.size<10)error("Not enough questions for this industry")
                 java.util.Collections.shuffle(candidates,random)
                 triviaQuestions=candidates.take(10).map{q->
