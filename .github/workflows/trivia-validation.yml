@@ -20,6 +20,9 @@ jobs:
       - name: Import review candidates (Hitchcock and Chaplin)
         continue-on-error: true
         run: node trivia/import-wikidata.mjs Q7374 Q882
+      - name: Report candidate coverage
+        if: success()
+        run: node trivia/report-coverage.mjs
       - name: Upload candidate credits for human review
         if: always()
         uses: actions/upload-artifact@v4
