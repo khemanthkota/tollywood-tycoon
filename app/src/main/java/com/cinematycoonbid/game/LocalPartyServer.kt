@@ -204,7 +204,7 @@ class LocalPartyServer(private val context: Context) {
         val arr=JSONArray(raw)
         (0 until arr.length()).map { i->
             val item=arr.getJSONObject(i);val options=item.getJSONArray("options")
-            Triple(item.getString("industry"),item.optString("difficulty","easy"),listOf(item.getString("question"))+(0 until 4).map{options.getString(it)}+listOf(item.getInt("correct").toString()))
+            Triple(item.getString("industry"),item.optString("difficulty","easy"),listOf(item.getString("question"))+(0 until 4).map{options.getString(it)}+listOf(item.getInt("correct").toString(),item.optString("visual",""),item.optString("type","text")))
         }
     }
     // Question, four options, correct answer index. Curated starter set; expand using the existing trivia dataset later.
@@ -233,6 +233,7 @@ class LocalPartyServer(private val context: Context) {
         return JSONObject().put("type","trivia_state").put("code",triviaRoom).put("index",triviaIndex).put("total",triviaDeck.size)
             .put("finished",triviaFinished).put("revealed",triviaRevealed).put("deadline",if(triviaDeadline>0)triviaDeadline else JSONObject.NULL).put("question",q?.get(0)?:JSONObject.NULL)
             .put("options",if(q==null)JSONArray() else JSONArray(q.subList(1,5)))
+            .put("visual",q?.getOrNull(6) ?: "").put("questionType",q?.getOrNull(7) ?: "text")
             .put("correct",if(triviaRevealed&&q!=null)q[5].toInt() else JSONObject.NULL).put("players",players)
     }
     private fun triviaBroadcast(){
@@ -257,7 +258,7 @@ class LocalPartyServer(private val context: Context) {
                 triviaQuestions=candidates.take(10).map{q->
                     val answer=q[q[5].toInt()+1]
                     val options=q.subList(1,5).toMutableList();java.util.Collections.shuffle(options,random)
-                    listOf(q[0])+options+listOf(options.indexOf(answer).toString())
+                    listOf(q[0])+options+listOf(options.indexOf(answer).toString(),q.getOrElse(6){""},q.getOrElse(7){"text"})
                 }
                 triviaDeck=triviaQuestions.indices.toList()
                 triviaDuration=m.optInt("seconds",30).takeIf{it in listOf(15,30,45,60)}?:30
