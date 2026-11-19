@@ -20,6 +20,9 @@ jobs:
       - name: Import review candidates (Hitchcock and Chaplin)
         continue-on-error: true
         run: node trivia/import-wikidata.mjs Q7374 Q882
+      - name: Generate quality-gated question batch
+        if: success()
+        run: node trivia/generate-quality-gated.mjs
       - name: Report candidate coverage
         if: success()
         run: node trivia/report-coverage.mjs
@@ -28,5 +31,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: filmography-candidates
-          path: trivia/candidates/wikidata-credits.json
+          path: |
+            trivia/candidates/wikidata-credits.json
+            trivia/candidates/quality-gated-questions.json
+            trivia/candidates/quality-report.json
           if-no-files-found: ignore
