@@ -20,10 +20,16 @@ const drafts=buildCreditQuestions(approved).map(q=>({
   verified:false
 }));
 const checked=filterQuestionBatch(drafts);
+// Structural checks alone cannot verify that the credited facts are true.
+// Keep accepted questions as non-playable candidates until evidence is checked.
+const candidates=checked.accepted.map(q=>({...q,verified:false,playable:false,verificationStatus:'needs-fact-check'}));
 const reportData={importedCredits:credits.length,approvedCredits:approved.length,
   draftQuestions:drafts.length,...checked.summary,
+  targetPhaseOne:500,verifiedPlayableQuestions:0,
+  structurallyAcceptedCandidates:candidates.length,
+  remainingToPhaseOne:500,
   rejectedReasons:checked.rejected.reduce((a,x)=>{for(const r of x.reasons)a[r]=(a[r]||0)+1;return a;},{})};
 await mkdir('trivia/candidates',{recursive:true});
-await writeFile(output,JSON.stringify(checked.accepted,null,2)+'\n');
+await writeFile(output,JSON.stringify(candidates,null,2)+'\n');
 await writeFile(report,JSON.stringify(reportData,null,2)+'\n');
 console.log(JSON.stringify(reportData));
