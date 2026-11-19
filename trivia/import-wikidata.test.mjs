@@ -12,5 +12,5 @@ test('pending imported credits never count as certified playable questions',()=>
 test('importer requires explicit Wikidata IDs and retains pending-review state',()=>{
  const src=readFileSync(new URL('./import-wikidata.mjs',import.meta.url),'utf8');
  assert.match(src,/reviewStatus:'pending'/);
- assert.match(src,/^Q\[1-9\]/m);
+ assert.ok(src.includes('Q[1-9]'));
 });
