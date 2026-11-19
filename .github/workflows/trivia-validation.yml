@@ -1,0 +1,29 @@
+name: Trivia validation and film-credit candidate import
+on:
+  push:
+    paths:
+      - 'trivia/**'
+      - '.github/workflows/trivia-validation.yml'
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run trivia tests
+        run: node --test trivia/*.test.mjs
+      - name: Import review candidates (Hitchcock and Chaplin)
+        continue-on-error: true
+        run: node trivia/import-wikidata.mjs Q7374 Q882
+      - name: Upload candidate credits for human review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: filmography-candidates
+          path: trivia/candidates/wikidata-credits.json
+          if-no-files-found: ignore
