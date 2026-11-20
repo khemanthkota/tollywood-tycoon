@@ -37,6 +37,24 @@ for(const c of rows){
   explanation:`The imported record attributes the ${c.role} credit for "${c.title}" to ${c.personName}; this attribution has not been independently verified.`,
   sources:c.sourceUrls||[],sourceRecordIds:[c.filmId,c.personId],role:c.role});
 }
+// Film-title multiple choice works with fewer than four distinct people.
+// A missing imported credit is NOT evidence that a distractor is factually false.
+// Therefore these remain non-playable drafts until negative choices are verified.
+for(const c of rows){
+ if(questions.length>=target)break;
+ const knownForPerson=new Set(rows.filter(x=>x.personId===c.personId && x.role===c.role).map(x=>x.filmId));
+ const distractors=[...new Map(rows.filter(x=>x.role===c.role && x.personId!==c.personId &&
+   !knownForPerson.has(x.filmId) && x.title.toLowerCase()!==c.title.toLowerCase())
+   .map(x=>[x.title.toLowerCase(),x])).values()].slice(0,3);
+ if(distractors.length<3)continue;
+ const options=[c.title,...distractors.map(x=>x.title)];
+ if(new Set(options.map(x=>x.toLowerCase())).size!==4)continue;
+ add({category:'filmography',difficulty:'draft',industry:c.industry||'Unclassified',
+   prompt:`Which of these films is listed in the imported records as one that ${c.personName} ${c.role==='actor'?'appeared in':c.role==='director'?'directed':c.role==='producer'?'produced':'wrote'}?`,
+   options,answer:c.title,
+   explanation:`The imported film-credit dataset lists ${c.personName} as ${c.role} for "${c.title}". Other options require independent negative-credit checks.`,
+   sources:c.sourceUrls||[],sourceRecordIds:[c.filmId,c.personId],role:c.role});
+}
 await mkdir('trivia/candidates',{recursive:true});
 await writeFile(output,JSON.stringify(questions,null,2)+'\n');
 const report={target,generated:questions.length,shortfall:target-questions.length,sourceCredits:records.length,distinctRoleCredits:rows.length,verified:0,playable:0,note:'Draft-only; do not import into gameplay without factual and ambiguity checks'};
