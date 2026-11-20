@@ -32,7 +32,7 @@ const SONGS=[{"i":"tollywood","f":"RRR","s":"Naatu Naatu"},{"i":"tollywood","f":
 (()=>{'use strict';
 const $=id=>document.getElementById(id),roundSize=10;
 let selected=[],position=0,points=0,current=null,finished=false;let betaBank=[];
-fetch('trivia-beta-18000.json').then(r=>{if(!r.ok)throw Error('missing bank');return r.json()}).then(rows=>{betaBank=rows.filter(q=>q&&q.prompt&&Array.isArray(q.options)&&q.options.length===4&&q.options.includes(q.answer));$('bankStatus').textContent='Beta question bank loaded: '+betaBank.length+' questions (not independently verified).';}).catch(()=>{$('bankStatus').textContent='Using existing trivia questions; 18,000-question asset not installed yet.'});
+try{const rows=window.CinemaTriviaBank?JSON.parse(window.CinemaTriviaBank.load()):[];betaBank=rows.filter(q=>q&&q.prompt&&Array.isArray(q.options)&&q.options.length===4&&q.options.includes(q.answer));$('bankStatus').textContent=betaBank.length?'Beta question bank loaded: '+betaBank.length+' questions (not independently verified).':'Using existing trivia questions; beta bank unavailable.';}catch(e){$('bankStatus').textContent='Using existing trivia questions; beta bank could not be read.';}
 const choose=a=>a[Math.floor(Math.random()*a.length)];
 function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a}
 function safeRead(k){try{return localStorage.getItem(k)}catch{return null}}
