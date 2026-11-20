@@ -9,7 +9,7 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,6 +24,17 @@ jobs:
         run: node trivia/merge-sources.mjs trivia/candidates/wikidata-credits.json
       - name: Generate up to 18000 draft questions
         run: node trivia/generate-9000-drafts.mjs trivia/candidates/merged-credits.json
+      - name: Export full offline beta bank for Android
+        run: node trivia/export-android-beta.mjs
+      - name: Publish beta question asset to repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/assets/trivia-beta-18000.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Update offline Android trivia beta bank (18000 drafts)"
+            git push
+          fi
       - name: Audit draft answers, ambiguity, sources and difficulty risks
         run: node trivia/audit-bulk-drafts.mjs
       - name: Quarantine flagged drafts and prepare fact-check queue
