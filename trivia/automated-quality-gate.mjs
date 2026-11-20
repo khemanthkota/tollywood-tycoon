@@ -3,8 +3,8 @@
  * Passing this gate is not a guarantee that source facts are correct.
  */
 const NORMALIZE = s => String(s || '').normalize('NFKC').trim().toLowerCase().replace(/\s+/g,' ');
-const URL = /^https:\/\/[^\s/]+\.[^\s/]+\//i;
-const HOST = url => { try { return new URL(url).hostname.replace(/^www\./,''); } catch { return ''; } };
+const SOURCE_URL = /^https:\/\/[^\s/]+\.[^\s/]+\//i;
+const HOST = url => { try { return new globalThis.URL(url).hostname.replace(/^www\./,''); } catch { return ''; } };
 export function assessQuestion(q, {seen=new Set(), requireIndependentSources=true}={}) {
   const reasons=[];
   if (!q || typeof q !== 'object') return {accepted:false,reasons:['invalid question']};
@@ -18,7 +18,7 @@ export function assessQuestion(q, {seen=new Set(), requireIndependentSources=tru
   if(answer.length>=4 && NORMALIZE(prompt).includes(answer)) reasons.push('answer leaked in prompt');
   if(!q.explanation || String(q.explanation).trim().length<20) reasons.push('insufficient explanation');
   const sources=Array.isArray(q.sources)?q.sources:[];
-  if(!sources.length || sources.some(s=>typeof s!=='string' || !URL.test(s))) reasons.push('missing valid source URLs');
+  if(!sources.length || sources.some(s=>typeof s!=='string' || !SOURCE_URL.test(s))) reasons.push('missing valid source URLs');
   if(requireIndependentSources && new Set(sources.map(HOST).filter(Boolean)).size<2) reasons.push('fewer than two source domains');
   if(/\b(how many|most films|total films|film count|credits|filmography)\b/i.test(prompt) && !/^\d{4}-\d{2}-\d{2}$/.test(q.cutoff||'')) reasons.push('film counts require cutoff date');
   const key=NORMALIZE(prompt).replace(/[^a-z0-9]+/g,' ')+'|'+[...normalized].sort().join('|');
