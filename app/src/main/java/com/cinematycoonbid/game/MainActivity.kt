@@ -74,6 +74,11 @@ class MainActivity : ComponentActivity() {
         if (foreground && auctionScreenAwake) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
+    private inner class TriviaBankBridge {
+        @JavascriptInterface fun load(): String = try {
+            assets.open("trivia-beta-18000.json").bufferedReader().use { it.readText() }
+        } catch (_: Exception) { "[]" }
+    }
     private inner class ScreenBridge {
         @JavascriptInterface fun setAuctionActive(active: Boolean) {
             runOnUiThread { auctionScreenAwake = active; syncScreenAwake() }
@@ -137,6 +142,7 @@ class MainActivity : ComponentActivity() {
         webView.addJavascriptInterface(VoiceBridge(), "CinemaVoice")
         webView.addJavascriptInterface(LocalPartyBridge(), "CinemaLocalParty")
         webView.addJavascriptInterface(ScreenBridge(), "CinemaScreen")
+        webView.addJavascriptInterface(TriviaBankBridge(), "CinemaTriviaBank")
         webView.addJavascriptInterface(BatteryBridge(), "CinemaBatteryNative")
         speech = TextToSpeech(this) { status -> speechReady = status == TextToSpeech.SUCCESS }
         speech?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
