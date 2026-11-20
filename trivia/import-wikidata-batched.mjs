@@ -2,7 +2,7 @@
 /** Resilient bounded Wikidata imports. Each language/year window is independent. */
 import {mkdir,writeFile} from 'node:fs/promises';
 const languages={te:'Q8097',hi:'Q1568',ta:'Q5885',ml:'Q36236',kn:'Q33673',en:'Q1860'};
-const windows=[['1990','2009'],['2010','2026']];
+const windows=[['1970','1989'],['1990','2004'],['2005','2014'],['2015','2026']];
 const merged=new Map(),failures=[];
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 for(const [language,qid] of Object.entries(languages)) for(const [from,to] of windows){
@@ -11,7 +11,7 @@ for(const [language,qid] of Object.entries(languages)) for(const [from,to] of wi
  ?film wdt:P364 wd:${qid}; ?role ?person; wdt:P577 ?date.
  FILTER(?date >= "${from}-01-01T00:00:00Z"^^xsd:dateTime && ?date < "${Number(to)+1}-01-01T00:00:00Z"^^xsd:dateTime)
  SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul". }
-} LIMIT 350`;
+} LIMIT 600`;
  let data=null;
  for(let attempt=1;attempt<=2;attempt++){
   try{
