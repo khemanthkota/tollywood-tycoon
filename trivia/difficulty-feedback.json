@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "feedback": [
+    {
+      "source": "sample-quiz-chat-feedback",
+      "sampleSize": 10,
+      "correct": 3,
+      "reportedDifficulty": "medium",
+      "date": "2026-11-19",
+      "note": "Illustrative quiz outside generated draft dataset; subjective calibration signal only, not per-question playtest evidence."
+    }
+  ],
+  "guidance": {
+    "easy": "Recognizable but nontrivial",
+    "medium": "Plausible distractors and non-obvious credits",
+    "hard": "Deep film knowledge with corroborated facts",
+    "guardrails": [
+      "Do not infer population difficulty from one player",
+      "Do not mark database drafts playable from this feedback",
+      "Use per-question playtest attempts for measured difficulty"
+    ]
+  }
+}
