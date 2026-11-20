@@ -26,6 +26,8 @@ jobs:
         run: node trivia/generate-9000-drafts.mjs trivia/candidates/merged-credits.json
       - name: Audit draft answers, ambiguity, sources and difficulty risks
         run: node trivia/audit-bulk-drafts.mjs
+      - name: Quarantine flagged drafts and prepare fact-check queue
+        run: node trivia/quarantine-flagged-drafts.mjs
       - name: Generate quality-gated candidates
         run: node trivia/generate-quality-gated.mjs trivia/candidates/merged-credits.json
       - name: Report candidate coverage
@@ -45,4 +47,7 @@ jobs:
             trivia/candidates/bulk-draft-report.json
             trivia/candidates/draft-audit-report.json
             trivia/candidates/draft-audit-results.json
+            trivia/candidates/quarantined-drafts.json
+            trivia/candidates/fact-check-queue.json
+            trivia/candidates/remediation-report.json
           if-no-files-found: ignore
