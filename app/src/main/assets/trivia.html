@@ -147,39 +147,35 @@ function answer(opt){if(finished)return;finished=true;let ok=opt===current.corre
  fb.classList.remove('hidden');$('next').classList.remove('hidden');
 }
 function finish(){const best=Math.max(points,Number(safeRead('cinema-mini-trivia-best')||0));safeSave('cinema-mini-trivia-best',String(best));$('play').classList.add('hidden');$('finish').classList.remove('hidden');$('result').textContent=`You scored ${points} / ${selected.length}`;$('resultDesc').textContent=`Best score: ${best}/10. Trivia results never affect auction budgets or rankings.`}
-function normalized(v){return String(v||'').toLocaleLowerCase().replace(/[^\\p{L}\\p{N}]+/gu,' ').trim()}
-function leakedAnswer(q){const p=normalized(q.prompt),a=normalized(q.answer);return !!a&&a.length>=4&&(' '+p+' ').includes(' '+a+' ')}
-function difficultyPool(rows,level){
- // Provisional difficulty proxies only; drafts have no validated difficulty labels.
- const scored=rows.map(q=>{const p=q.prompt.toLowerCase();let complexity=0;
- if(/which of these films|listed in the imported records/.test(p))complexity+=2;
- if(/who (appeared in|directed|produced|wrote)/.test(p))complexity+=1;
- if(/according to the imported credits/.test(p))complexity+=1;
- if(q.answer.length>22)complexity+=1;
- return {q,complexity}});
- const pool=scored.filter(({complexity})=>level==='easy'?complexity<=1:level==='hard'?complexity>=3:complexity>=2&&complexity<=3).map(x=>x.q);
- return pool.length>=10?pool:rows;
+function normalized(v){return String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()}
+function leakedAnswer(q){const p=' '+normalized(q.prompt)+' ',a=normalized(q.answer);return a.length>=4&&p.includes(' '+a+' ')}
+function matchesIndustry(q,ind){if(ind==='all')return true;const label=normalized(q.industry);const aliases={tollywood:['tollywood','telugu'],bollywood:['bollywood','hindi'],hollywood:['hollywood','english','american'],kollywood:['kollywood','tamil'],mollywood:['mollywood','malayalam'],sandalwood:['sandalwood','kannada']};return (aliases[ind]||[ind]).some(v=>label.includes(v))}
+function difficultyPool(rows,level){const graded=rows.filter(q=>q.difficulty===level);return graded.length>=10?graded:rows}
+function allLegacyFor(ind){
+ const facts=[...FACTS,...DIALOGUES.map(d=>({...d,t:'dialogue',p:d.q,y:0})),...comparisonBank(ind),...TIMELINE_QUESTIONS,...HARD_FACTS,...MULTICLUE_QUESTIONS,...SONGS.map(d=>({...d,t:'song',p:d.s,y:0}))];
+ const level=$('difficulty').value;
+ return shuffle(facts.filter(f=>(ind==='all'||f.i===ind)&&(level==='hard'||!['hardfact','multiclue'].includes(f.t))&&(level!=='easy'||!['timeline3','compare'].includes(f.t)))).flatMap(f=>['compare','timeline3','hardfact','multiclue'].includes(f.t)?[f]:[f,{...f,variant:'reverse'}]);
 }
-$('start').onclick=()=>{const ind=$('industry').value;const level=$('difficulty').value;const candidates=betaBank.filter(q=>(ind==='all'||String(q.industry).toLowerCase()===ind)&&!leakedAnswer(q)&&new Set(q.options.map(normalized)).size===4);const pool=difficultyPool(candidates,level);
- // Combine independent categories instead of filling a round with film-credit questions.
- const legacy=questionsFor(ind);
- // Each legacy selector returns at most ten; draw additional batches to cover sparse industry/category combinations.
- for(let batch=0;batch<8&&legacy.length<70;batch++)legacy.push(...questionsFor(ind));
- const types=['song','dialogue','role','director','year','compare','timeline3','multiclue','hardfact'];
- const chosen=[],usedPrompts=new Set(),usedKinds=new Map();
- const add=q=>{const key=normalized(q.t==='beta'?q.prompt:[q.t,q.f,q.q,q.p].join(' '));if(usedPrompts.has(key))return false;usedPrompts.add(key);chosen.push(q);usedKinds.set(q.t,(usedKinds.get(q.t)||0)+1);return true};
- const legacyByType=new Map(types.map(t=>[t,shuffle(legacy.filter(q=>q.t===t))]));
- // One question from as many different available categories as possible.
- for(const type of shuffle(types)){const list=legacyByType.get(type)||[];if(list.length)add(list[0]);if(chosen.length>=7)break}
- // Mix in filmography drafts, capped so they never dominate the round.
- const betaCandidates=shuffle(pool).map(q=>({...q,t:'beta'}));
- for(const q of betaCandidates){if((usedKinds.get('beta')||0)>=3||chosen.length>=10)break;add(q)}
- // Fill remaining slots, favoring the least-used legacy question types.
- for(const q of shuffle(legacy).sort((a,b)=>(usedKinds.get(a.t)||0)-(usedKinds.get(b.t)||0))){if(chosen.length>=10)break;add(q)}
- for(const q of betaCandidates){if(chosen.length>=10)break;add(q)}
- // Do not silently start a four-question round when a selected industry has insufficient distinct items.
- if(chosen.length<10){alert('Only '+chosen.length+' distinct questions are available for this selection. Please choose another industry or difficulty while we expand this category.');return}
- selected=shuffle(chosen.slice(0,10));position=0;points=0;$('setup').classList.add('hidden');showQuestion()};
+$('start').onclick=()=>{
+ const ind=$('industry').value,level=$('difficulty').value;
+ const beta=difficultyPool(betaBank.filter(q=>matchesIndustry(q,ind)&&!leakedAnswer(q)&&new Set(q.options.map(normalized)).size===4),level);
+ const legacy=allLegacyFor(ind);
+ const groups=new Map(),chosen=[],seen=new Set(),usedFilm=new Set();
+ for(const f of legacy){if(!groups.has(f.t))groups.set(f.t,[]);groups.get(f.t).push(f)}
+ const add=f=>{const k=normalized([f.t,f.f,f.q,f.p,f.variant,f.prompt].join('|'));const film=normalized(f.f||'');if(seen.has(k)||film&&usedFilm.has(film))return false;seen.add(k);if(film)usedFilm.add(film);chosen.push(f);return true};
+ // Rotate across question formats, not a fixed run of release-year questions.
+ const types=shuffle([...groups.keys()]);
+ let changed=true;
+ while(chosen.length<7&&changed){changed=false;for(const type of types){const group=groups.get(type);while(group.length){if(add(group.shift())){changed=true;break}}if(chosen.length>=7)break}}
+ // Filmography drafts provide additional variety but never dominate.
+ for(const q of shuffle(beta)){if(chosen.length>=10)break;if(chosen.filter(x=>x.t==='beta').length>=3)break;add({...q,t:'beta'})}
+ // Fill remaining slots with unused legacy questions; relax repeated film only if essential.
+ for(const f of shuffle(legacy)){if(chosen.length>=10)break;add(f)}
+ if(chosen.length<10){for(const f of shuffle(legacy)){if(chosen.length>=10)break;const k=normalized([f.t,f.f,f.q,f.p,f.variant].join('|'));if(!seen.has(k)){seen.add(k);chosen.push(f)}}}
+ if(chosen.length<10){for(const q of shuffle(beta)){if(chosen.length>=10)break;const k='beta '+normalized(q.prompt);if(!seen.has(k)){seen.add(k);chosen.push({...q,t:'beta'})}}}
+ if(chosen.length<10){alert('Only '+chosen.length+' distinct questions available for this selection.');return}
+ selected=shuffle(chosen.slice(0,10));position=0;points=0;$('setup').classList.add('hidden');showQuestion()
+};
 $('report').onclick=()=>{if(!current)return;$('reportNotes').value='';$('reportDialog').showModal()};
 $('cancelReport').onclick=()=>$('reportDialog').close();
 $('reportForm').onsubmit=e=>{e.preventDefault();const record={id:current.id||'legacy-'+position,question:current.prompt,options:current.opts,expected:current.correct,reason:$('reportReason').value,notes:$('reportNotes').value,date:new Date().toISOString()};let reports=[];try{reports=JSON.parse(safeRead('cinema-trivia-reports')||'[]')}catch{}reports.push(record);safeSave('cinema-trivia-reports',JSON.stringify(reports));$('reportDialog').close();$('reportToast').textContent='Report saved on this device ('+reports.length+' total).';$('reportToast').classList.remove('hidden');setTimeout(()=>$('reportToast').classList.add('hidden'),3500)};
