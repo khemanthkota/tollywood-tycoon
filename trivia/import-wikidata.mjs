@@ -7,12 +7,19 @@
  */
 import {mkdir,writeFile} from 'node:fs/promises';
 const ids=process.argv.slice(2);
+const discover=ids.length===1 && ids[0]==='--discover';
 if(!ids.length || ids.some(id=>!/^Q[1-9]\d*$/.test(id))) {
- console.error('Usage: node trivia/import-wikidata.mjs Q12345 [Q67890 ...]');
+ console.error('Usage: node trivia/import-wikidata.mjs --discover OR Q12345 [Q67890 ...]');
  process.exitCode=2;
 } else {
  const props={actor:'P161',director:'P57',producer:'P162',writer:'P58'};
- const query=`SELECT DISTINCT ?film ?filmLabel ?person ?personLabel ?role ?date ?languageLabel WHERE {
+ const query=discover ? `SELECT DISTINCT ?film ?filmLabel ?person ?personLabel ?role ?date ?languageLabel WHERE {
+ VALUES ?language { wd:Q1860 wd:Q8097 wd:Q11059 wd:Q36236 wd:Q33919 wd:Q33673 }
+ VALUES ?role { ${Object.values(props).map(p=>'wdt:'+p).join(' ')} }
+ ?film wdt:P31 wd:Q11424; wdt:P364 ?language; ?role ?person; wdt:P577 ?date.
+ FILTER(?date >= "1950-01-01T00:00:00Z"^^xsd:dateTime)
+ SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul". }
+} LIMIT 6000` : `SELECT DISTINCT ?film ?filmLabel ?person ?personLabel ?role ?date ?languageLabel WHERE {
  VALUES ?person { ${ids.map(id=>'wd:'+id).join(' ')} }
  VALUES ?role { ${Object.values(props).map(p=>'wdt:'+p).join(' ')} }
  ?film ?role ?person; wdt:P31 wd:Q11424; wdt:P577 ?date.
@@ -20,7 +27,7 @@ if(!ids.length || ids.some(id=>!/^Q[1-9]\d*$/.test(id))) {
  SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul". }
 } LIMIT 10000`;
  const url='https://query.wikidata.org/sparql?query='+encodeURIComponent(query);
- const res=await fetch(url,{headers:{Accept:'application/sparql-results+json',
+ const res=await fetch(url,{signal:AbortSignal.timeout(110000),headers:{Accept:'application/sparql-results+json',
   'User-Agent':'CinemaTycoonTriviaImporter/0.1 (educational; manual review required)'}});
  if(!res.ok) throw Error('Wikidata HTTP '+res.status);
  const data=await res.json();
