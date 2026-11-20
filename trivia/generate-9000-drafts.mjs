@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
  * Bulk DRAFT generation from imported film-credit candidates.
- * Produces up to 9000 unique, non-playable questions; never pads with invented facts.
+ * Produces up to 18000 unique, non-playable questions; never pads with invented facts.
  * Source records are hypotheses until independently checked.
  */
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
-const target=9000;
+const target=18000;
 const input=process.argv[2]||'trivia/candidates/wikidata-credits.json';
 const output=process.argv[3]||'trivia/candidates/bulk-drafts.json';
 const reportPath=process.argv[4]||'trivia/candidates/bulk-draft-report.json';
