@@ -22,8 +22,10 @@ jobs:
         run: node trivia/import-wikidata-batched.mjs
       - name: Merge available source candidates
         run: node trivia/merge-sources.mjs trivia/candidates/wikidata-credits.json
-      - name: Generate up to 9000 draft questions
+      - name: Generate up to 18000 draft questions
         run: node trivia/generate-9000-drafts.mjs trivia/candidates/merged-credits.json
+      - name: Audit draft answers, ambiguity, sources and difficulty risks
+        run: node trivia/audit-bulk-drafts.mjs
       - name: Generate quality-gated candidates
         run: node trivia/generate-quality-gated.mjs trivia/candidates/merged-credits.json
       - name: Report candidate coverage
@@ -41,4 +43,6 @@ jobs:
             trivia/candidates/quality-report.json
             trivia/candidates/bulk-drafts.json
             trivia/candidates/bulk-draft-report.json
+            trivia/candidates/draft-audit-report.json
+            trivia/candidates/draft-audit-results.json
           if-no-files-found: ignore
