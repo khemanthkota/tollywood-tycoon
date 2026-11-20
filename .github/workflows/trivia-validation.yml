@@ -28,6 +28,8 @@ jobs:
         run: node trivia/audit-bulk-drafts.mjs
       - name: Quarantine flagged drafts and prepare fact-check queue
         run: node trivia/quarantine-flagged-drafts.mjs
+      - name: Verify independently reviewed evidence and playtest difficulty
+        run: node trivia/verify-reviewed-evidence.mjs
       - name: Generate quality-gated candidates
         run: node trivia/generate-quality-gated.mjs trivia/candidates/merged-credits.json
       - name: Report candidate coverage
@@ -50,4 +52,6 @@ jobs:
             trivia/candidates/quarantined-drafts.json
             trivia/candidates/fact-check-queue.json
             trivia/candidates/remediation-report.json
+            trivia/candidates/verified-playable.json
+            trivia/candidates/evidence-verification-report.json
           if-no-files-found: ignore
