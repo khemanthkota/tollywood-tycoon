@@ -2,6 +2,7 @@ package com.khemanthkota.tollywoodtycoon
 
 import android.content.Intent
 import android.os.Bundle
+import org.json.JSONArray
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -22,6 +23,22 @@ private data class TriviaQuestion(
     val options: List<String>,
     val correct: Int
 )
+
+private fun loadBetaQuestions(context: android.content.Context): List<TriviaQuestion> = try {
+    val text = context.assets.open("trivia-beta-18000.json").bufferedReader().use { it.readText() }
+    val json = JSONArray(text)
+    (0 until json.length()).mapNotNull { i ->
+        val item = json.getJSONObject(i)
+        val choices = item.getJSONArray("options")
+        val options = (0 until choices.length()).map { choices.getString(it) }
+        val answerIndex = options.indexOf(item.getString("answer"))
+        if (options.size != 4 || answerIndex < 0) null else TriviaQuestion(
+            item.getString("id"), item.optString("industry", "Mixed"),
+            item.getString("prompt"), options, answerIndex
+        )
+    }
+} catch (_: Exception) { starterQuestions }
+
 
 // Offline starter set. The bulk draft dataset is NOT yet shipped in this app.
 private val starterQuestions = listOf(
@@ -50,8 +67,9 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun TriviaGame(modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val bank = remember { loadBetaQuestions(context) }
     var industry by remember { mutableStateOf("All") }
-    var questions by remember { mutableStateOf(starterQuestions.shuffled()) }
+    var questions by remember { mutableStateOf(bank.shuffled()) }
     var index by remember { mutableIntStateOf(0) }
     var selected by remember { mutableIntStateOf(-1) }
     var score by remember { mutableIntStateOf(0) }
@@ -61,7 +79,7 @@ private fun TriviaGame(modifier: Modifier = Modifier) {
     var started by remember { mutableStateOf(false) }
 
     fun startGame() {
-        questions = starterQuestions.filter { industry == "All" || it.industry == industry }.shuffled()
+        questions = bank.filter { industry == "All" || it.industry == industry }.shuffled().take(10)
         index = 0
         selected = -1
         score = 0
@@ -73,10 +91,10 @@ private fun TriviaGame(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text("Cinema Tycoon • Trivia", style = MaterialTheme.typography.headlineMedium)
-        Text("Offline beta • sample questions", style = MaterialTheme.typography.labelMedium)
+        Text("Offline beta • ${bank.size} questions • unverified", style = MaterialTheme.typography.labelMedium)
         if (!started) {
             Text("Choose an industry", style = MaterialTheme.typography.titleMedium)
-            val industries = listOf("All", "Tollywood", "Bollywood", "Hollywood", "Kollywood", "Mollywood", "Sandalwood")
+            val industries = listOf("All") + bank.map { it.industry }.distinct().sorted()
             industries.forEach { choice ->
                 FilterChip(selected = industry == choice, onClick = { industry = choice }, label = { Text(choice) })
             }
