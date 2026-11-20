@@ -4,7 +4,8 @@ import {readFile,writeFile} from 'node:fs/promises';
 const [draftPath='trivia/candidates/bulk-drafts.json',creditPath='trivia/candidates/merged-credits.json']=process.argv.slice(2);
 const [questions,credits]=await Promise.all([readFile(draftPath,'utf8').then(JSON.parse),readFile(creditPath,'utf8').then(JSON.parse)]);
 const norm=s=>String(s||'').normalize('NFKC').toLowerCase().trim().replace(/\\s+/g,' ');
-const roles=new Map(),byPerson=new Map();
+const roles=new Map(),byPerson=new Map(),titlesByFilm=new Map();
+for(const c of credits){if(c.filmId&&c.title){if(!titlesByFilm.has(c.filmId))titlesByFilm.set(c.filmId,new Set());titlesByFilm.get(c.filmId).add(norm(c.title));}}
 for(const c of credits)for(const role of c.roles||[]){
  const key=[c.filmId,role].join('|');
  if(!roles.has(key))roles.set(key,new Set());
@@ -27,7 +28,7 @@ for(const q of questions){
  }else if(q.prompt?.startsWith('Which of these films is listed')){
   const known=byPerson.get([personId,q.role].join('|'))||new Set();
   const optionTitles=new Set(options);
-  const matches=credits.filter(c=>known.has(c.filmId)&&optionTitles.has(norm(c.title))).map(c=>norm(c.title));
+  const matches=[];for(const id of known)for(const title of titlesByFilm.get(id)||[])if(optionTitles.has(title))matches.push(title);
   if(new Set(matches).size>1)issues.push('multiple-options-supported-by-import');
  }
  if(!q.sources?.length||new Set(q.sources.map(s=>{try{return new URL(s).hostname}catch{return ''}})).size<2)issues.push('no-independent-corroboration');
