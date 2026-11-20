@@ -41,6 +41,6 @@ for(const q of questions){
  counts.needsReview++;
  results.push({id:q.id,issues,reviewStatus:'pending',playable:false});
 }
-await writeFile('trivia/candidates/draft-audit-report.json',JSON.stringify({summary:counts,method:'Automated structural and imported-credit consistency checks only. No independent fact verification, difficulty calibration, or gameplay approval.',examples:results.filter(r=>r.issues.some(x=>x.startsWith('multiple-options'))).slice(0,50)},null,2)+'\\n');
-await writeFile('trivia/candidates/draft-audit-results.json',JSON.stringify(results)+'\\n');
+await writeFile('trivia/candidates/draft-audit-report.json',JSON.stringify({summary:counts,method:'Automated structural and imported-credit consistency checks only. No independent fact verification, difficulty calibration, or gameplay approval.',examples:results.filter(r=>r.issues.some(x=>x.startsWith('multiple-options'))).slice(0,50)},null,2)+'\n');
+await writeFile('trivia/candidates/draft-audit-results.json',JSON.stringify(results)+'\n');
 console.log(JSON.stringify(counts));
