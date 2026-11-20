@@ -17,9 +17,9 @@ jobs:
           node-version: '22'
       - name: Run trivia tests
         run: node --test trivia/*.test.mjs
-      - name: Import review candidates (Hitchcock and Chaplin)
+      - name: Import broader multilingual film-credit candidates
         continue-on-error: true
-        run: node trivia/import-wikidata.mjs Q7374 Q882
+        run: node trivia/import-wikidata.mjs --discover
       - name: Generate up to 9000 draft questions
         if: success()
         run: node trivia/generate-9000-drafts.mjs
