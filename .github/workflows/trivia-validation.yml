@@ -20,7 +20,7 @@ jobs:
       - name: Import broader multilingual film-credit candidates
         continue-on-error: true
         run: node trivia/import-wikidata.mjs --discover
-      - name: Import TMDb candidates (optional credential)\n        continue-on-error: true\n        env:\n          TMDB_READ_TOKEN: ${{ secrets.TMDB_READ_TOKEN }}\n        run: node trivia/import-tmdb.mjs\n      - name: Merge multi-source candidates\n        run: node trivia/merge-sources.mjs trivia/candidates/wikidata-credits.json trivia/candidates/tmdb-credits.json\n      - name: Generate up to 9000 draft questions
+      - name: Import TMDb candidates (optional credential)\n        continue-on-error: true\n        env:\n          TMDB_READ_TOKEN: ${{ secrets.TMDB_READ_TOKEN }}\n        run: node trivia/import-tmdb.mjs\n      - name: Merge multi-source candidates\n        run: node trivia/merge-sources.mjs trivia/candidates/wikidata-credits.json\n      - name: Generate up to 9000 draft questions
         if: success()
         run: node trivia/generate-9000-drafts.mjs trivia/candidates/merged-credits.json
       - name: Generate quality-gated question batch
