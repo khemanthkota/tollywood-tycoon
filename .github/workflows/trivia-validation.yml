@@ -19,7 +19,7 @@ jobs:
         run: node --test trivia/*.test.mjs
       - name: Import multilingual film-credit candidates
         continue-on-error: true
-        run: node trivia/import-wikidata.mjs --discover
+        run: node trivia/import-wikidata-batched.mjs
       - name: Merge available source candidates
         run: node trivia/merge-sources.mjs trivia/candidates/wikidata-credits.json
       - name: Generate up to 9000 draft questions
@@ -35,6 +35,7 @@ jobs:
           name: filmography-candidates-and-drafts
           path: |
             trivia/candidates/wikidata-credits.json
+            trivia/candidates/import-report.json
             trivia/candidates/merged-credits.json
             trivia/candidates/quality-gated-questions.json
             trivia/candidates/quality-report.json
