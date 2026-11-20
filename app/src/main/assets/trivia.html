@@ -163,6 +163,8 @@ function difficultyPool(rows,level){
 $('start').onclick=()=>{const ind=$('industry').value;const level=$('difficulty').value;const candidates=betaBank.filter(q=>(ind==='all'||String(q.industry).toLowerCase()===ind)&&!leakedAnswer(q)&&new Set(q.options.map(normalized)).size===4);const pool=difficultyPool(candidates,level);
  // Combine independent categories instead of filling a round with film-credit questions.
  const legacy=questionsFor(ind);
+ // Each legacy selector returns at most ten; draw additional batches to cover sparse industry/category combinations.
+ for(let batch=0;batch<8&&legacy.length<70;batch++)legacy.push(...questionsFor(ind));
  const types=['song','dialogue','role','director','year','compare','timeline3','multiclue','hardfact'];
  const chosen=[],usedPrompts=new Set(),usedKinds=new Map();
  const add=q=>{const key=normalized(q.t==='beta'?q.prompt:[q.t,q.f,q.q,q.p].join(' '));if(usedPrompts.has(key))return false;usedPrompts.add(key);chosen.push(q);usedKinds.set(q.t,(usedKinds.get(q.t)||0)+1);return true};
@@ -175,6 +177,8 @@ $('start').onclick=()=>{const ind=$('industry').value;const level=$('difficulty'
  // Fill remaining slots, favoring the least-used legacy question types.
  for(const q of shuffle(legacy).sort((a,b)=>(usedKinds.get(a.t)||0)-(usedKinds.get(b.t)||0))){if(chosen.length>=10)break;add(q)}
  for(const q of betaCandidates){if(chosen.length>=10)break;add(q)}
+ // Do not silently start a four-question round when a selected industry has insufficient distinct items.
+ if(chosen.length<10){alert('Only '+chosen.length+' distinct questions are available for this selection. Please choose another industry or difficulty while we expand this category.');return}
  selected=shuffle(chosen.slice(0,10));position=0;points=0;$('setup').classList.add('hidden');showQuestion()};
 $('report').onclick=()=>{if(!current)return;$('reportNotes').value='';$('reportDialog').showModal()};
 $('cancelReport').onclick=()=>$('reportDialog').close();
