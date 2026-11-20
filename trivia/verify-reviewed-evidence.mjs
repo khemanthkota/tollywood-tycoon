@@ -9,7 +9,7 @@ const base='trivia/candidates/';
 const load=async(p,fallback)=>{try{return JSON.parse(await readFile(p,'utf8'))}catch(e){if(e.code==='ENOENT')return fallback;throw e}};
 const [queue,evidence]=await Promise.all([load(base+'fact-check-queue.json',[]),load('trivia/reviewed-evidence.json',[])]);
 const byId=new Map(evidence.map(e=>[e.questionId,e]));
-const host=u=>{try{const x=new URL(u);return x.protocol==='https:'?x.hostname.replace(/^www\\./,''):''}catch{return ''}};
+const host=u=>{try{const x=new URL(u);return x.protocol==='https:'?x.hostname.replace(/^www\./,''):''}catch{return ''}};
 const norm=x=>String(x||'').normalize('NFKC').trim().toLowerCase();
 const accepted=[],pending=[],rejected=[];
 for(const q of queue){
@@ -26,6 +26,6 @@ for(const q of queue){
  accepted.push({...q,verified:true,playable:true,reviewStatus:'approved',difficulty,verificationStatus:'reviewed-independent-evidence',evidence:e});
 }
 await mkdir(base,{recursive:true});
-await writeFile(base+'verified-playable.json',JSON.stringify(accepted,null,2)+'\\n');
-await writeFile(base+'evidence-verification-report.json',JSON.stringify({total:queue.length,approved:accepted.length,awaitingEvidence:pending.length,rejectedEvidence:rejected.length,examples:rejected.slice(0,30)},null,2)+'\\n');
+await writeFile(base+'verified-playable.json',JSON.stringify(accepted,null,2)+'\n');
+await writeFile(base+'evidence-verification-report.json',JSON.stringify({total:queue.length,approved:accepted.length,awaitingEvidence:pending.length,rejectedEvidence:rejected.length,examples:rejected.slice(0,30)},null,2)+'\n');
 console.log(JSON.stringify({total:queue.length,approved:accepted.length,awaitingEvidence:pending.length,rejectedEvidence:rejected.length}));
