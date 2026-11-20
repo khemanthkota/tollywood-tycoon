@@ -8,7 +8,7 @@
 import {mkdir,writeFile} from 'node:fs/promises';
 const ids=process.argv.slice(2);
 const discover=ids.length===1 && ids[0]==='--discover';
-if(!ids.length || ids.some(id=>!/^Q[1-9]\d*$/.test(id))) {
+if(!discover && (!ids.length || ids.some(id=>!/^Q[1-9]\d*$/.test(id)))) {
  console.error('Usage: node trivia/import-wikidata.mjs --discover OR Q12345 [Q67890 ...]');
  process.exitCode=2;
 } else {
