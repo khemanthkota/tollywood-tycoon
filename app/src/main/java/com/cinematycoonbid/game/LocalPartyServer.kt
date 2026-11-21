@@ -22,7 +22,8 @@ class LocalPartyServer(private val context: Context) {
     private var room = ""
     private var mode = "manual"
     private var seconds = 30
-    private var phase = "auction"
+    private var phase = "lobby"
+    private var tvControlEnabled = false
     private var lot: JSONObject? = null
     private var highId: String? = null
     private var highAmount = 0
@@ -371,13 +372,13 @@ class LocalPartyServer(private val context: Context) {
         }
         return null
     }
-    private fun reset(){bidScreens.clear();players.clear();sessions.clear();host=null;room="";lot=null;highId=null;highAmount=0;deadline=0;phase="auction";results=null;while(history.length()>0)history.remove(0)}
+    private fun reset(){bidScreens.clear();players.clear();sessions.clear();host=null;room="";lot=null;highId=null;highAmount=0;deadline=0;phase="lobby";tvControlEnabled=false;results=null;while(history.length()>0)history.remove(0)}
     private fun send(c:WebSocket?,o:JSONObject){try{if(c?.isOpen==true)c.send(o.toString())}catch(_:Exception){}}
     private fun state():JSONObject {
         val list=JSONArray()
         players.values.forEach { p->list.put(JSONObject().put("id",p.id).put("name",p.name).put("budget",p.budget).put("contracts",p.contracts).put("movie",if(p.movie!=null)JSONObject().put("submitted",true) else JSONObject.NULL)) }
         val high=highId?.let{players[it]}?.let{JSONObject().put("name",it.name).put("amount",highAmount)}
-        return JSONObject().put("code",room).put("mode",mode).put("seconds",seconds).put("phase",phase).put("lot",lot?:JSONObject.NULL).put("high",high?:JSONObject.NULL).put("remaining",if(deadline>0) ((deadline-System.currentTimeMillis()+999)/1000).coerceAtLeast(0) else JSONObject.NULL).put("players",list).put("history",history).put("results",results?:JSONObject.NULL)
+        return JSONObject().put("code",room).put("mode",mode).put("seconds",seconds).put("phase",phase).put("tvControlEnabled",tvControlEnabled).put("lot",lot?:JSONObject.NULL).put("high",high?:JSONObject.NULL).put("remaining",if(deadline>0) ((deadline-System.currentTimeMillis()+999)/1000).coerceAtLeast(0) else JSONObject.NULL).put("players",list).put("history",history).put("results",results?:JSONObject.NULL)
     }
     private fun broadcast(){val s=state();send(host,JSONObject().put("type","state").put("state",s));players.values.forEach{p->send(p.ws,JSONObject().put("type","state").put("state",s).put("you",p.id))};bidScreens.forEach{send(it,JSONObject().put("type","state").put("state",s))}}
     private fun endLot(){
@@ -388,10 +389,33 @@ class LocalPartyServer(private val context: Context) {
         history.put(JSONObject().put("lot",lot!!.getString("name")).put("outcome",outcome))
         lot=null;highId=null;highAmount=0;deadline=0;broadcast()
     }
+    private fun startBidGame() {
+        if(phase!="lobby")error("Game already started")
+        if(players.isEmpty())error("Wait for at least one player")
+        phase="auction";broadcast()
+    }
+    private fun handleTvBidAction(type:String,m:JSONObject) {
+        when(type) {
+            "lot" -> {
+                if(phase!="auction"||lot!=null)error("Finish current auction first")
+                val kind=m.optString("kind");val name=m.optString("name").trim().take(40)
+                if(kind !in listOf("director","actor","actress")||name.isEmpty())error("Enter a valid celebrity")
+                lot=JSONObject().put("kind",kind).put("name",name);highId=null;highAmount=0
+                deadline=if(mode=="auto")System.currentTimeMillis()+seconds*1000L else 0;broadcast()
+            }
+            "close" -> {if(phase!="auction")error("Auction not started");endLot()}
+            "movies" -> {if(phase!="auction"||lot!=null)error("Finish auction first");phase="movies";broadcast()}
+        }
+    }
     private fun handle(c:WebSocket,m:JSONObject) {
         val type=m.optString("type")
         val id=sessions[c]
         if(id==null) {
+            if(bidScreens.contains(c) && type in listOf("start","lot","close","movies")) {
+                if(!tvControlEnabled) error("Host must enable TV controls first")
+                if(type=="start") {startBidGame();return}
+                handleTvBidAction(type,m);return
+            }
             if(type=="watch"){
                 if(room.isEmpty()||m.optString("code")!=room)error("Room not found")
                 if(bidScreens.size>=5)error("Too many TV displays")
@@ -424,7 +448,9 @@ class LocalPartyServer(private val context: Context) {
         }
         val isHost=id=="HOST";val p=players[id]
         when(type) {
-            "lot" -> {if(!isHost||phase!="auction"||lot!=null)error("Host must finish current auction")
+            "tv_control" -> {if(!isHost)error("Host only");tvControlEnabled=m.optBoolean("enabled");broadcast()}
+            "start" -> {if(!isHost)error("Host only");startBidGame()}
+            "lot" -> {if(!isHost||phase!="auction"||lot!=null)error("Start game and finish current auction first")
                 val kind=m.optString("kind");val name=m.optString("name").trim().take(40)
                 if(kind !in listOf("director","actor","actress")||name.isEmpty())error("Enter a valid celebrity")
                 lot=JSONObject().put("kind",kind).put("name",name);highId=null;highAmount=0
