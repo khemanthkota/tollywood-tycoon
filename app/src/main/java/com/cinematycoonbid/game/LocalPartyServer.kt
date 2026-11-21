@@ -316,11 +316,20 @@ class LocalPartyServer(private val context: Context) {
     private val http = object : NanoHTTPD(8080) {
         override fun serve(session: IHTTPSession): Response {
             val path = session.uri.substringBefore('?')
-            val filename = when(path) { "/", "/join", "/multiplayer.html" -> "multiplayer.html"; "/codewords", "/codewords-lan.html" -> "codewords-lan.html"; "/tv.html" -> "tv.html"; "/trivia-lan.html" -> "trivia-lan.html"; else -> "" }
+            val filename = when(path) {
+                "/", "/join", "/multiplayer.html" -> "multiplayer.html"
+                "/codewords", "/codewords-lan.html" -> "codewords-lan.html"
+                "/tv.html" -> "tv.html"
+                "/trivia-lan.html" -> "trivia-lan.html"
+                "/industries.js" -> "industries.js"
+                "/telugu-roster.js" -> "telugu-roster.js"
+                else -> ""
+            }
             if(filename.isEmpty()) return newFixedLengthResponse(Response.Status.NOT_FOUND,"text/plain","Not found")
+            val mime = if(filename.endsWith(".js")) "text/javascript; charset=utf-8" else "text/html; charset=utf-8"
             return try {
                 val body=context.assets.open(filename).use { it.readBytes() }
-                newFixedLengthResponse(Response.Status.OK,"text/html; charset=utf-8",body.inputStream(),body.size.toLong()).apply {
+                newFixedLengthResponse(Response.Status.OK,mime,body.inputStream(),body.size.toLong()).apply {
                     addHeader("Cache-Control","no-store")
                     addHeader("X-Content-Type-Options","nosniff")
                 }
