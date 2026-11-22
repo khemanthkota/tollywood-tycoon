@@ -14,7 +14,7 @@ const players=children.filter(el=>el.classList.contains('card')&&el!==summary).f
 const results=children.filter(el=>el.classList.contains('card')&&el!==summary&&el!==players).find(el=>el.querySelector('#history'));
 if(!summary||!auction||!studio||!players||!results)return;
 const style=document.createElement('style');
-style.textContent=\`
+style.textContent=`
 #room.organizer-dashboard{max-width:1180px;margin:22px auto;padding:0}
 #room .dashboard-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 16px;padding:18px 22px;border:1px solid #4b566b;border-radius:18px;background:linear-gradient(120deg,#262d3e,#1b2231)}
 #room .dashboard-brand{font-size:19px;font-weight:850;letter-spacing:.04em;color:#ffd080}
@@ -48,7 +48,7 @@ style.textContent=\`
  #room .dashboard-nav{position:sticky;top:0;z-index:20;flex-direction:row;overflow-x:auto;gap:6px;margin-bottom:12px;padding:7px;border-radius:12px}
  #room .dashboard-tab{width:auto;white-space:nowrap;flex:0 0 auto;padding:10px 12px;font-size:13px}
  #room .dashboard-panel>.card,#room .dashboard-panel>section.card{padding:15px}
-}\`;
+}`;
 document.head.appendChild(style);
 room.classList.add('organizer-dashboard');
 const heading=document.createElement('header');heading.className='dashboard-heading';
@@ -75,7 +75,7 @@ panels.results.append(resultActions,results);
 room.replaceChildren(heading,layout);layout.append(nav,content);
 let saved='lobby';try{saved=sessionStorage.getItem('cinema-organizer-tab')||'lobby'}catch{}activate(panels[saved]?saved:'lobby');
 const phase=document.getElementById('phase'),stage=document.getElementById('dashboardStage');
-if(phase&&stage){const observer=new MutationObserver(()=>{stage.textContent=phase.textContent.replace(/^Stage:\\s*/,'').toUpperCase()||'ROOM CONTROL'});observer.observe(phase,{childList:true,subtree:true,characterData:true});stage.textContent=phase.textContent.replace(/^Stage:\\s*/,'').toUpperCase()||'ROOM CONTROL'}
+if(phase&&stage){const observer=new MutationObserver(()=>{stage.textContent=phase.textContent.replace(/^Stage:\s*/,'').toUpperCase()||'ROOM CONTROL'});observer.observe(phase,{childList:true,subtree:true,characterData:true});stage.textContent=phase.textContent.replace(/^Stage:\s*/,'').toUpperCase()||'ROOM CONTROL'}
 };
 if(!auction.classList.contains('hide'))initialize();
 else{const observer=new MutationObserver(()=>{if(!auction.classList.contains('hide')){observer.disconnect();initialize()}});observer.observe(auction,{attributes:true,attributeFilter:['class']})}
