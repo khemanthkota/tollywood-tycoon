@@ -1,10 +1,14 @@
 (()=>{'use strict';
 const room=document.getElementById('room');
-if(!room||room.dataset.dashboardReady)return;
+if(!room||room.dataset.dashboardObserver)return;
+const auction=document.getElementById('hostControls');
+if(!auction)return;
+room.dataset.dashboardObserver='1';
+const initialize=()=>{
+if(auction.classList.contains('hide')||room.dataset.dashboardReady)return;
 room.dataset.dashboardReady='1';
 const children=[...room.children];
 const summary=children.find(el=>el.classList.contains('card'));
-const auction=document.getElementById('hostControls');
 const studio=document.getElementById('playerControls');
 const players=children.filter(el=>el.classList.contains('card')&&el!==summary).find(el=>el.querySelector('#players'));
 const results=children.filter(el=>el.classList.contains('card')&&el!==summary&&el!==players).find(el=>el.querySelector('#history'));
@@ -72,4 +76,7 @@ room.replaceChildren(heading,layout);layout.append(nav,content);
 let saved='lobby';try{saved=sessionStorage.getItem('cinema-organizer-tab')||'lobby'}catch{}activate(panels[saved]?saved:'lobby');
 const phase=document.getElementById('phase'),stage=document.getElementById('dashboardStage');
 if(phase&&stage){const observer=new MutationObserver(()=>{stage.textContent=phase.textContent.replace(/^Stage:\\s*/,'').toUpperCase()||'ROOM CONTROL'});observer.observe(phase,{childList:true,subtree:true,characterData:true});stage.textContent=phase.textContent.replace(/^Stage:\\s*/,'').toUpperCase()||'ROOM CONTROL'}
+};
+if(!auction.classList.contains('hide'))initialize();
+else{const observer=new MutationObserver(()=>{if(!auction.classList.contains('hide')){observer.disconnect();initialize()}});observer.observe(auction,{attributes:true,attributeFilter:['class']})}
 })();
