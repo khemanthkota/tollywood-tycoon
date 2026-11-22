@@ -39,15 +39,29 @@ style.textContent=`
 #room .dashboard-action-card{padding:16px;margin:0 0 14px;border-radius:14px;background:#171f2e;border:1px solid #46536a}
 #room .dashboard-action-card button{margin:0}
 #room .dashboard-empty-note{color:#9eacc2;font-size:13px}
+#room .dashboard-invite{margin-top:12px;padding:12px;border:1px solid #46536a;border-radius:12px;background:#171f2e}
+#room .dashboard-invite>summary{cursor:pointer;color:#ffda9b;font-weight:700}
+#room .dashboard-invite #qrSection{padding-top:12px}
+#room .dashboard-invite #joinQR{display:block;width:150px;height:150px;object-fit:contain}
+#room .dashboard-start{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px;padding:15px;border:1px solid #a8754b;border-radius:14px;background:linear-gradient(110deg,#38283a,#252b3a)}
+#room .dashboard-start strong{display:block;color:#ffda9b}
+#room .dashboard-start small{display:block;margin-top:4px;color:#b9c4d5}
+#room .dashboard-start button{margin:0;min-width:130px;min-height:46px}
 @media(max-width:720px){
  #room.organizer-dashboard{margin:12px 0}
- #room .dashboard-heading{padding:14px;align-items:flex-start}
- #room .dashboard-brand{font-size:16px}
- #room .dashboard-stage{font-size:10px;white-space:nowrap}
+ #room .dashboard-heading{padding:12px;display:block}
+ #room .dashboard-brand{font-size:15px;line-height:1.25;max-width:100%;overflow-wrap:anywhere}
+ #room .dashboard-subtitle{display:none}
+ #room .dashboard-stage{display:inline-block;margin-top:8px;font-size:10px;white-space:normal}
  #room .dashboard-layout{display:block}
- #room .dashboard-nav{position:sticky;top:0;z-index:20;flex-direction:row;overflow-x:auto;gap:6px;margin-bottom:12px;padding:7px;border-radius:12px}
- #room .dashboard-tab{width:auto;white-space:nowrap;flex:0 0 auto;padding:10px 12px;font-size:13px}
- #room .dashboard-panel>.card,#room .dashboard-panel>section.card{padding:15px}
+ #room .dashboard-nav{position:sticky;top:0;z-index:20;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:12px;padding:7px;border-radius:12px}
+ #room .dashboard-tab{width:100%;min-width:0;white-space:normal;text-align:center;padding:10px 5px;font-size:12px;line-height:1.2}
+ #room .dashboard-panel>.card,#room .dashboard-panel>section.card{padding:13px}
+ #room .dashboard-start{align-items:stretch;flex-direction:column}
+ #room .dashboard-start button{width:100%}
+ #room .dashboard-invite #qrSection{min-width:0}
+ #room .dashboard-invite #joinLink{font-size:12px}
+
 }`;
 document.head.appendChild(style);
 room.classList.add('organizer-dashboard');
@@ -64,7 +78,15 @@ specs.forEach(([key,icon,label],i)=>{
  button.addEventListener('click',()=>activate(key));
 });
 function activate(key){Object.entries(panels).forEach(([name,p])=>p.hidden=name!==key);nav.querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.panel===key)));try{sessionStorage.setItem('cinema-organizer-tab',key)}catch{}}
-panels.lobby.append(summary,players);
+const invite=document.createElement('details');invite.className='dashboard-invite';
+invite.innerHTML='<summary>📲 Invite players · QR code and join link</summary>';
+const qr=document.getElementById('qrSection');if(qr)invite.append(qr);
+summary.append(invite);
+panels.lobby.append(summary);
+const startCard=document.createElement('section');startCard.className='dashboard-start';
+startCard.innerHTML='<div><strong>Ready to begin?</strong><small>Start the auction when all players have joined.</small></div>';
+const startButton=document.getElementById('startGame');if(startButton)startCard.append(startButton);
+panels.lobby.append(startCard,players);
 panels.auction.append(auction);
 const studioActions=document.createElement('section');studioActions.className='dashboard-action-card';studioActions.innerHTML='<h3>Production phase</h3><p class="dashboard-empty-note">Move the room into movie-making when the auction is complete.</p>';
 const movies=document.getElementById('movies');if(movies)studioActions.append(movies);
