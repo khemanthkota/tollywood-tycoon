@@ -71,6 +71,7 @@ document.head.appendChild(style);
 room.classList.add('organizer-dashboard');
 const heading=document.createElement('header');heading.className='dashboard-heading';
 heading.innerHTML='<div><div class="dashboard-brand">🎬 CINEMA TYCOON · ORGANIZER STUDIO</div><div class="dashboard-subtitle">Manage the room, auction, movie production and results</div></div><div class="dashboard-stage" id="dashboardStage">ROOM CONTROL</div>';
+const stage=heading.querySelector('#dashboardStage');
 const layout=document.createElement('div');layout.className='dashboard-layout';
 const content=document.createElement('div');content.className='dashboard-content';
 const specs=[['lobby','▦','Lobby','Room, invitations and players'],['auction','🔨','Auction','Celebrity selection and live bidding'],['studio','🎬','Movie studio','Production and submissions'],['results','🏆','Results','Final standings and ROI']];
@@ -108,7 +109,7 @@ const resultActions=document.createElement('section');resultActions.className='d
 const showResults=document.getElementById('results');if(showResults)resultActions.append(showResults);
 panels.results.append(resultActions,results);
 room.replaceChildren(heading,layout);layout.append(content);showHome();
-const phase=document.getElementById('phase'),stage=document.getElementById('dashboardStage');
+const phase=document.getElementById('phase');
 if(phase&&stage){const observer=new MutationObserver(()=>{stage.textContent=phase.textContent.replace(/^Stage:\s*/,'').toUpperCase()||'ROOM CONTROL'});observer.observe(phase,{childList:true,subtree:true,characterData:true});stage.textContent=phase.textContent.replace(/^Stage:\s*/,'').toUpperCase()||'ROOM CONTROL'}
 };
 if(!auction.classList.contains('hide'))initialize();
