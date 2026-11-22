@@ -20,14 +20,17 @@ style.textContent=`
 #room .dashboard-brand{font-size:19px;font-weight:850;letter-spacing:.04em;color:#ffd080}
 #room .dashboard-subtitle{font-size:12px;color:#aebbd0;margin-top:4px}
 #room .dashboard-stage{font-size:12px;color:#d9e2f1;padding:8px 12px;border:1px solid #59657a;border-radius:999px;background:#121a29}
-#room .dashboard-layout{display:grid;grid-template-columns:205px minmax(0,1fr);gap:16px;align-items:start}
-#room .dashboard-nav{position:sticky;top:12px;display:flex;flex-direction:column;gap:7px;padding:10px;border:1px solid #3d485d;border-radius:16px;background:#171e2b}
-#room .dashboard-tab{width:100%;margin:0;text-align:left;padding:13px 14px;border:1px solid transparent;border-radius:10px;background:transparent;color:#d8e1ef;font-weight:650}
-#room .dashboard-tab:hover{background:#273247}
-#room .dashboard-tab[aria-selected=true]{background:linear-gradient(100deg,#60452f,#443044);border-color:#bd8957;color:#ffda9b}
+#room .dashboard-layout{display:block}
 #room .dashboard-content{min-width:0}
-#room .dashboard-panel{min-width:0}
-#room .dashboard-panel[hidden]{display:none!important}
+#room .dashboard-home{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#room .dashboard-home[hidden],#room .dashboard-panel[hidden]{display:none!important}
+#room .dashboard-home-card{display:flex;align-items:center;gap:14px;min-height:100px;padding:18px;text-align:left;border:1px solid #46536a;border-radius:16px;background:linear-gradient(120deg,#252d3e,#1b2231);color:#f8f1e8}
+#room .dashboard-home-card strong{display:block;color:#ffda9b;font-size:17px}
+#room .dashboard-home-card small{display:block;margin-top:5px;color:#b9c4d5;font-weight:400}
+#room .dashboard-home-icon{font-size:28px}
+#room .dashboard-page-head{display:flex;align-items:center;gap:14px;margin:0 0 14px;padding:12px;border:1px solid #46536a;border-radius:14px;background:#171e2b}
+#room .dashboard-back{flex:0 0 auto;margin:0;padding:10px 14px;background:#30394c;color:#ffda9b;border:1px solid #59657a}
+#room .dashboard-page-title{font-size:18px;font-weight:800;color:#ffda9b}
 #room .dashboard-panel>.card,#room .dashboard-panel>section.card{margin:0 0 14px;padding:20px;border-radius:16px;background:#222a39;border:1px solid #4c586e}
 #room .dashboard-panel h3{margin-top:0;color:#ffda9b;font-size:18px}
 #room #hostControls label{margin:12px 0}
@@ -53,9 +56,10 @@ style.textContent=`
  #room .dashboard-brand{font-size:15px;line-height:1.25;max-width:100%;overflow-wrap:anywhere}
  #room .dashboard-subtitle{display:none}
  #room .dashboard-stage{display:inline-block;margin-top:8px;font-size:10px;white-space:normal}
- #room .dashboard-layout{display:block}
- #room .dashboard-nav{position:sticky;top:0;z-index:20;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:12px;padding:7px;border-radius:12px}
- #room .dashboard-tab{width:100%;min-width:0;white-space:normal;text-align:center;padding:10px 5px;font-size:12px;line-height:1.2}
+ #room .dashboard-home{grid-template-columns:1fr}
+ #room .dashboard-home-card{min-height:76px;padding:14px}
+ #room .dashboard-page-head{gap:10px}
+ #room .dashboard-page-title{font-size:16px}
  #room .dashboard-panel>.card,#room .dashboard-panel>section.card{padding:13px}
  #room .dashboard-start{align-items:stretch;flex-direction:column}
  #room .dashboard-start button{width:100%}
@@ -68,16 +72,25 @@ room.classList.add('organizer-dashboard');
 const heading=document.createElement('header');heading.className='dashboard-heading';
 heading.innerHTML='<div><div class="dashboard-brand">🎬 CINEMA TYCOON · ORGANIZER STUDIO</div><div class="dashboard-subtitle">Manage the room, auction, movie production and results</div></div><div class="dashboard-stage" id="dashboardStage">ROOM CONTROL</div>';
 const layout=document.createElement('div');layout.className='dashboard-layout';
-const nav=document.createElement('nav');nav.className='dashboard-nav';nav.setAttribute('aria-label','Organizer sections');
 const content=document.createElement('div');content.className='dashboard-content';
-const specs=[['lobby','▦','Lobby'],['auction','🔨','Auction'],['studio','🎬','Movie studio'],['results','🏆','Results']];
+const specs=[['lobby','▦','Lobby','Room, invitations and players'],['auction','🔨','Auction','Celebrity selection and live bidding'],['studio','🎬','Movie studio','Production and submissions'],['results','🏆','Results','Final standings and ROI']];
 const panels={};
-specs.forEach(([key,icon,label],i)=>{
- const button=document.createElement('button');button.type='button';button.className='dashboard-tab';button.dataset.panel=key;button.setAttribute('role','tab');button.setAttribute('aria-selected',String(i===0));button.textContent=icon+'  '+label;nav.appendChild(button);
- const panel=document.createElement('section');panel.className='dashboard-panel';panel.dataset.panel=key;panel.setAttribute('role','tabpanel');panel.hidden=i!==0;content.appendChild(panel);panels[key]=panel;
- button.addEventListener('click',()=>activate(key));
+const home=document.createElement('section');home.className='dashboard-home';home.setAttribute('aria-label','Organizer pages');
+specs.forEach(([key,icon,label,description])=>{
+ const button=document.createElement('button');button.type='button';button.className='dashboard-home-card';
+ button.innerHTML='<span class="dashboard-home-icon">'+icon+'</span><span><strong>'+label+'</strong><small>'+description+'</small></span>';
+ home.append(button);button.addEventListener('click',()=>activate(key));
+ const panel=document.createElement('section');panel.className='dashboard-panel';panel.dataset.panel=key;panel.hidden=true;
+ const pageHead=document.createElement('header');pageHead.className='dashboard-page-head';
+ const back=document.createElement('button');back.type='button';back.className='dashboard-back';back.textContent='← Back';
+ back.addEventListener('click',showHome);
+ const pageTitle=document.createElement('div');pageTitle.className='dashboard-page-title';pageTitle.textContent=label;
+ pageHead.append(back,pageTitle);panel.append(pageHead);content.appendChild(panel);panels[key]=panel;
 });
-function activate(key){Object.entries(panels).forEach(([name,p])=>p.hidden=name!==key);nav.querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.panel===key)));try{sessionStorage.setItem('cinema-organizer-tab',key)}catch{}}
+content.append(home);
+function showHome(){Object.values(panels).forEach(p=>p.hidden=true);home.hidden=false;stage.textContent='ORGANIZER HOME';}
+function activate(key){home.hidden=true;Object.entries(panels).forEach(([name,p])=>p.hidden=name!==key);stage.textContent=(specs.find(x=>x[0]===key)?.[2]||'ORGANIZER').toUpperCase();try{history.pushState({organizerPage:key},'','#organizer-'+key)}catch{}}
+window.addEventListener('popstate',()=>showHome());
 const invite=document.createElement('details');invite.className='dashboard-invite';
 invite.innerHTML='<summary>📲 Invite players · QR code and join link</summary>';
 const qr=document.getElementById('qrSection');if(qr)invite.append(qr);
@@ -94,8 +107,7 @@ panels.studio.append(studioActions,studio);
 const resultActions=document.createElement('section');resultActions.className='dashboard-action-card';resultActions.innerHTML='<h3>Finalize the game</h3><p class="dashboard-empty-note">Publish the final studio results when submissions are ready.</p>';
 const showResults=document.getElementById('results');if(showResults)resultActions.append(showResults);
 panels.results.append(resultActions,results);
-room.replaceChildren(heading,layout);layout.append(nav,content);
-let saved='lobby';try{saved=sessionStorage.getItem('cinema-organizer-tab')||'lobby'}catch{}activate(panels[saved]?saved:'lobby');
+room.replaceChildren(heading,layout);layout.append(content);showHome();
 const phase=document.getElementById('phase'),stage=document.getElementById('dashboardStage');
 if(phase&&stage){const observer=new MutationObserver(()=>{stage.textContent=phase.textContent.replace(/^Stage:\s*/,'').toUpperCase()||'ROOM CONTROL'});observer.observe(phase,{childList:true,subtree:true,characterData:true});stage.textContent=phase.textContent.replace(/^Stage:\s*/,'').toUpperCase()||'ROOM CONTROL'}
 };
