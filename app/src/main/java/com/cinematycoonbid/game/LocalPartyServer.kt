@@ -12,6 +12,9 @@ import java.net.NetworkInterface
 import java.security.SecureRandom
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 /** In-memory LAN-only party server. Host device and all players must share a reachable LAN. */
 class LocalPartyServer(private val context: Context) {
@@ -32,6 +35,8 @@ class LocalPartyServer(private val context: Context) {
     private val usedLots = mutableSetOf<String>()
     private var results: JSONArray? = null
     private var running = false
+    private val socketStarted = CountDownLatch(1)
+    private val socketStartupError = AtomicReference<Exception?>(null)
 
     private val codeScreens=linkedSetOf<WebSocket>()
     private val bidScreens=linkedSetOf<WebSocket>()
@@ -357,11 +362,22 @@ class LocalPartyServer(private val context: Context) {
             try { if(message.length>8192) error("Message too large"); val payload=JSONObject(message);if(!triviaHandle(conn,payload)&&!codeHandle(conn,payload))handle(conn,payload) }
             catch(e:Exception) { send(conn,JSONObject().put("type","error").put("message",e.message?:"Invalid request")) }
         }
-        override fun onError(conn:WebSocket?, ex:Exception) {}
-        override fun onStart() { connectionLostTimeout=30 }
+        override fun onError(conn:WebSocket?, ex:Exception) { socketStartupError.compareAndSet(null, ex); socketStarted.countDown() }
+        override fun onStart() { connectionLostTimeout=30; socketStarted.countDown() }
     }
     fun start():String = synchronized(this) {
-        if(!running) { http.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false); socket.start(); running=true }
+        if(!running) {
+            try {
+                http.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false)
+                socket.start()
+                if(!socketStarted.await(5, TimeUnit.SECONDS)) error("WebSocket server did not finish starting within 5 seconds")
+                socketStartupError.get()?.let { throw IllegalStateException("WebSocket server failed to start: ${it.message}", it) }
+                running=true
+            } catch (e:Exception) {
+                try { http.stop() } catch (_:Exception) {}
+                throw e
+            }
+        }
         return address() ?: ""
     }
     fun stop() = synchronized(this) { if(running){socket.stop(1000);http.stop();running=false};reset();codeReset();triviaReset() }
