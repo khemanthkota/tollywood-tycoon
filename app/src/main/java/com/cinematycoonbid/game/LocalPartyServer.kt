@@ -29,6 +29,7 @@ class LocalPartyServer(private val context: Context) {
     private var highAmount = 0
     private var deadline = 0L
     private val history = JSONArray()
+    private val usedLots = mutableSetOf<String>()
     private var results: JSONArray? = null
     private var running = false
 
@@ -372,7 +373,7 @@ class LocalPartyServer(private val context: Context) {
         }
         return null
     }
-    private fun reset(){bidScreens.clear();players.clear();sessions.clear();host=null;room="";lot=null;highId=null;highAmount=0;deadline=0;phase="lobby";tvControlEnabled=false;results=null;while(history.length()>0)history.remove(0)}
+    private fun reset(){bidScreens.clear();players.clear();sessions.clear();usedLots.clear();host=null;room="";lot=null;highId=null;highAmount=0;deadline=0;phase="lobby";tvControlEnabled=false;results=null;while(history.length()>0)history.remove(0)}
     private fun send(c:WebSocket?,o:JSONObject){try{if(c?.isOpen==true)c.send(o.toString())}catch(_:Exception){}}
     private fun state():JSONObject {
         val list=JSONArray()
@@ -387,6 +388,7 @@ class LocalPartyServer(private val context: Context) {
         val p=highId?.let{players[it]}
         if(p!=null && p.budget>=highAmount) {p.budget-=highAmount;p.contracts.put(JSONObject(lot.toString()).put("price",highAmount));outcome=p.name+" · ₹"+highAmount+" Cr"}
         history.put(JSONObject().put("lot",lot!!.getString("name")).put("outcome",outcome))
+        if(outcome=="Unsold")usedLots.remove(lot!!.getString("kind")+"|"+lot!!.getString("name"))
         lot=null;highId=null;highAmount=0;deadline=0;broadcast()
     }
     private fun startBidGame() {
@@ -400,6 +402,7 @@ class LocalPartyServer(private val context: Context) {
                 if(phase!="auction"||lot!=null)error("Finish current auction first")
                 val kind=m.optString("kind");val name=m.optString("name").trim().take(40)
                 if(kind !in listOf("director","actor","actress")||name.isEmpty())error("Enter a valid celebrity")
+                val lotKey=kind+"|"+name;if(usedLots.contains(lotKey))error("This exact contract has already been auctioned. Choose another contract or celebrity.");usedLots.add(lotKey)
                 lot=JSONObject().put("kind",kind).put("name",name);highId=null;highAmount=0
                 deadline=if(mode=="auto")System.currentTimeMillis()+seconds*1000L else 0;broadcast()
             }
@@ -453,6 +456,7 @@ class LocalPartyServer(private val context: Context) {
             "lot" -> {if(!isHost||phase!="auction"||lot!=null)error("Start game and finish current auction first")
                 val kind=m.optString("kind");val name=m.optString("name").trim().take(40)
                 if(kind !in listOf("director","actor","actress")||name.isEmpty())error("Enter a valid celebrity")
+                val lotKey=kind+"|"+name;if(usedLots.contains(lotKey))error("This exact contract has already been auctioned. Choose another contract or celebrity.");usedLots.add(lotKey)
                 lot=JSONObject().put("kind",kind).put("name",name);highId=null;highAmount=0
                 deadline=if(mode=="auto")System.currentTimeMillis()+seconds*1000L else 0;broadcast()
             }
@@ -471,6 +475,7 @@ class LocalPartyServer(private val context: Context) {
                 val ids=m.optJSONArray("ids")?:JSONArray();val selected=mutableListOf<JSONObject>();val used=mutableSetOf<Int>()
                 for(i in 0 until ids.length()) {val n=ids.optInt(i,-1);if(n<0||n>=p.contracts.length()||!used.add(n))error("Invalid cast");selected.add(p.contracts.getJSONObject(n))}
                 if(selected.count{it.optString("kind")=="director"}!=1||selected.none{it.optString("kind")=="actor"}||selected.none{it.optString("kind")=="actress"})error("Select exactly one director and at least one actor and actress")
+                val uniqueCast=selected.map{it.optString("kind")+"|"+it.optString("name").replace(Regex(" · Contract [2-6]$"),"")}.toSet();if(uniqueCast.size!=selected.size)error("Do not select duplicate contracts for the same celebrity in one role")
                 val cast=selected.sumOf{it.optInt("price")};val production=m.optInt("production",-1)
                 if(production<kotlin.math.ceil(cast*.3).toInt()||production>p.budget)error("Invalid production budget")
                 p.movie=JSONObject().put("castCost",cast).put("production",production).put("title",m.optString("title","Untitled Film").trim().take(70));broadcast()
