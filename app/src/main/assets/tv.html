@@ -55,4 +55,57 @@ function renderBid(s){
  if(previousHistory>=0&&s.history.length>previousHistory){const last=s.history[s.history.length-1];if(last&&last.outcome&&last.outcome!=='Unsold')showWinner(last.lot,last.outcome)}
  previousHistory=s.history.length;previousLot=lot;previousPhase=s.phase;
 }
-if(params.has('code'))$('room').value=params.get('code');if(params.has('mode'))$('mode').value=params.get('mode');$('join').onclick=connect;})();</script></body></html>
+if(params.has('code'))$('room').value=params.get('code');if(params.has('mode'))$('mode').value=params.get('mode');$('join').onclick=connect;})();</script><style id="cinema-button-help-style">
+.info-icon{display:inline-flex;vertical-align:middle;align-items:center;justify-content:center;width:21px;height:21px;margin-left:8px;border-radius:50%;border:1px solid #f2c77d;color:#f2c77d;background:#251d2a;font:800 12px/1 system-ui;cursor:pointer;flex-shrink:0}
+button{position:relative}
+#buttonHelpDialog{max-width:min(92vw,420px);border:1px solid #f2c77d;border-radius:16px;background:#211a28;color:#fff;padding:22px;box-shadow:0 18px 55px #0009}
+#buttonHelpDialog::backdrop{background:rgba(0,0,0,.72)}
+#buttonHelpDialog h3{margin:0 0 10px;color:#f2c77d;font-size:1.2rem}
+#buttonHelpDialog p{line-height:1.55;margin:0}
+#buttonHelpDialog button{margin-top:18px;padding:9px 18px;border-radius:9px;background:#f2c77d;color:#241a25;font-weight:800;border:0}
+.info-icon:focus-visible{outline:2px solid #fff;outline-offset:2px}
+</style>
+<script id="cinema-button-help">
+(()=>{'use strict';
+if(window.__cinemaButtonHelpInstalled)return;window.__cinemaButtonHelpInstalled=true;
+const descriptions=[
+[/host game|host trivia|host codewords/i,'Create a new room on this device. The room code is then shared with players and the TV display.'],
+[/join game|join room|join trivia/i,'Enter the room code and your player name to join the host’s active game.'],
+[/copy.*(link|registration)/i,'Copy the player registration link so others can join without typing the room code.'],
+[/place next bid|bid/i,'Submit the next available bid. The bid increases the current price and uses the player’s remaining budget if they win.'],
+[/start game/i,'Begin the game for everyone in the room. Make sure the players have joined before starting.'],
+[/pick next celebrity automatically/i,'Choose the next eligible celebrity from the selected industry and auction pool.'],
+[/reveal celebrity/i,'Put the selected celebrity up for auction so connected players can begin bidding.'],
+[/close auction|award highest bid/i,'End the current bidding round and award the contract to the highest bidder. If there is no bid, the lot is unsold.'],
+[/start movie-making|movie-making|submit movie/i,'Move to movie creation. Players use their won contracts and set a production budget before submitting.'],
+[/show results|reveal the winner/i,'Display the completed game results and player rankings.'],
+[/connect tv/i,'Connect this screen to the room so it can display the live game for the audience.'],
+[/auctioneer voice/i,'Turn the auctioneer voice announcements on or off for this display.'],
+[/host trivia/i,'Create a trivia room. Share its room code with players and connect the TV display.'],
+[/join trivia/i,'Join the trivia room using its six-digit code and your player name.'],
+[/start \/ next question/i,'Start the first trivia question or advance after the previous question is complete.'],
+[/reveal answers/i,'Show the correct answer and update the scores for the current question.'],
+[/send clue/i,'Send the team’s clue to the players and TV. The clue-giver should avoid saying any word shown on the board.'],
+[/end turn/i,'Finish the current team’s turn and pass play to the opposing team.'],
+[/reveal secret key/i,'Show the secret team key to the captain only. Keep it hidden from the other team.'],
+[/new board/i,'Generate a fresh board for a new round. The previous board and guesses will be replaced.'],
+[/start 10-question round/i,'Begin a ten-question trivia round using the selected category and difficulty.'],
+[/next question/i,'Move to the next question. Any unanswered question will be closed.'],
+[/end round/i,'End the current trivia round and show the final scores.'],
+[/play another round/i,'Return to setup to choose another category or difficulty and start a new round.'],
+[/return to auctions/i,'Leave trivia and return to the main auction game.'],
+[/report question/i,'Flag the current question for review. This does not change your score.'],
+[/save report/i,'Submit the question report for review.'],
+[/cancel/i,'Close this dialog without saving the changes.'],
+[/back/i,'Return to the previous screen without starting a new game.']
+];
+function describe(button,label){const id=button.id||'';if(button.dataset.help)return button.dataset.help;for(const [re,txt] of descriptions)if(re.test(id+' '+label))return txt;return 'Use this control to '+label.replace(/[→←🎬🎲🔨🔒⚑]/g,'').replace(/\s+/g,' ').trim().toLowerCase()+'. If you are unsure, check the game instructions before continuing.'}
+function install(){document.querySelectorAll('button:not(.info-icon):not(#closeButtonHelp)').forEach(b=>{if(b.dataset.infoAttached||b.closest('#buttonHelpDialog'))return;const label=(b.innerText||b.textContent||b.getAttribute('aria-label')||b.id||'Action').replace(/\s+/g,' ').trim();if(!label)return;
+const icon=document.createElement('span');icon.className='info-icon';icon.textContent='i';icon.setAttribute('role','button');icon.setAttribute('tabindex','0');icon.setAttribute('aria-label','Information about '+label);icon.title='What does this button do?';
+const show=e=>{e.preventDefault();e.stopPropagation();dialog.querySelector('h3').textContent=label;dialog.querySelector('p').textContent=describe(b,label);if(!dialog.open)dialog.showModal()};
+icon.addEventListener('click',show);icon.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){show(e)}});b.appendChild(icon);b.dataset.infoAttached='1';
+});
+}
+const dialog=document.createElement('dialog');dialog.id='buttonHelpDialog';dialog.innerHTML='<div><h3>Button information</h3><p></p><button type="button" id="closeButtonHelp">Got it</button></div>';document.body.appendChild(dialog);dialog.querySelector('#closeButtonHelp').addEventListener('click',()=>dialog.close());dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close()});
+install();const observer=new MutationObserver(()=>install());observer.observe(document.body,{childList:true,subtree:true});
+})();</script></body></html>
