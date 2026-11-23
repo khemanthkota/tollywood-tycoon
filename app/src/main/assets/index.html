@@ -18,4 +18,20 @@ count.addEventListener('change',renderNames);renderNames();
 $('welcomeNext').addEventListener('click',()=>show('playersStep'));$('playersBack').addEventListener('click',()=>show('welcomeStep'));$('playersNext').addEventListener('click',()=>{save();show('industryStep')});$('industryBack').addEventListener('click',()=>show('playersStep'));
 document.querySelectorAll('.industry-card').forEach(a=>a.addEventListener('click',()=>save()));
 })();
+</script><style>
+.home-info{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin-left:8px;border:1px solid #f2c77d;border-radius:50%;color:#f2c77d;background:#251d2a;font:800 12px/1 system-ui;vertical-align:middle;cursor:pointer;flex:0 0 auto}
+#homeInfoDialog{max-width:min(92vw,420px);border:1px solid #f2c77d;border-radius:16px;background:#211a28;color:#fff;padding:22px;box-shadow:0 18px 55px #0009}
+#homeInfoDialog::backdrop{background:#000b}#homeInfoDialog h3{color:#f2c77d;margin:0 0 10px}#homeInfoDialog p{line-height:1.55;margin:0}#homeInfoDialog button{margin-top:18px;padding:9px 18px;border:0;border-radius:9px;background:#f2c77d;color:#241a25;font-weight:800}
+</style><script id="home-button-help">
+(()=>{'use strict';const dialog=document.createElement('dialog');dialog.id='homeInfoDialog';dialog.innerHTML='<h3></h3><p></p><button type="button">Got it</button>';document.body.appendChild(dialog);dialog.querySelector('button').onclick=()=>dialog.close();dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close()});
+const items=[
+['#welcomeNext','Let’s Play','Start setting up a new Cinema Tycoon auction. You will enter player names and choose a cinema industry before the auction begins.'],
+['a[href="how-to-play.html"]','How to Play','Open the tutorial and try a practice game. Learn bidding, casting, production budgets and scoring before playing with friends.'],
+['a[href="party-modes.html"]','TV Party Play','Choose Cinema Bid, Trivia or Codewords for local multiplayer testing with phones and a TV display.'],
+['a[href="cinema-codewords.html"]','Cinema Codewords','Open the team-based word guessing game preview. One team gives clues while teammates identify their words.'],
+['main > a.card[href="trivia.html"]','Trivia break','Play a separate 10-question cinema trivia round. It does not change your auction budget or results.'],
+['.welcome-settings > summary','Settings & help','Open the settings and help area. Game options, voice, music and auction settings can be adjusted after choosing an industry.']
+];
+for(const [selector,title,description] of items){const el=document.querySelector(selector);if(!el||el.querySelector('.home-info'))continue;const icon=document.createElement('span');icon.className='home-info';icon.textContent='i';icon.setAttribute('role','button');icon.setAttribute('tabindex','0');icon.setAttribute('aria-label','Information about '+title);icon.title='What does this do?';const show=e=>{e.preventDefault();e.stopPropagation();dialog.querySelector('h3').textContent=title;dialog.querySelector('p').textContent=description;dialog.showModal()};icon.addEventListener('click',show);icon.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){show(e)}});el.append(' ',icon)}
+})();
 </script></body></html>
