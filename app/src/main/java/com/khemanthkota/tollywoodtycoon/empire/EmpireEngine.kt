@@ -1,0 +1,64 @@
+package com.khemanthkota.tollywoodtycoon.empire
+
+import kotlin.random.Random
+import kotlin.math.roundToInt
+
+// All money is in lakh rupees. Fictional talent and simulated outcomes.
+enum class Genre { ACTION, COMEDY, ROMANCE, THRILLER, DRAMA }
+enum class Talent(val fee: Int, val skill: Int, val appeal: Int) {
+    NEWCOMER(35, 72, 30), ESTABLISHED(120, 78, 65), STAR(280, 82, 90)
+}
+enum class Director(val fee: Int, val skill: Int) {
+    DEBUT(20, 68), EXPERIENCED(75, 82), PREMIUM(150, 91)
+}
+data class FilmPlan(val title: String, val genre: Genre, val cast: Talent,
+    val director: Director, val budget: Int) {
+    val minimumCost get() = cast.fee + director.fee + 60
+}
+data class Career(val cash: Int = 1000, val completed: Int = 0,
+    val credibility: Int = 50, val audience: Int = 20, val seed: Int = 1) {
+    val unlocked get() = when {
+        completed < 2 -> 1
+        completed < 5 -> 2
+        completed < 10 -> 3
+        completed < 15 -> 4
+        else -> 5
+    }
+}
+enum class Response(val cost: Int, val quality: Int, val delay: Int) {
+    REPAIR(15, 0, 3), RENT(30, 2, 1), COMPROMISE(0, -9, 0)
+}
+data class Production(val plan: FilmPlan, val event: Boolean, val seed: Int)
+data class FilmResult(val title: String, val quality: Int, val gross: Int,
+    val rights: Int, val revenue: Int, val cost: Int, val delay: Int) {
+    val profit get() = revenue - cost
+}
+object EmpireEngine {
+    fun start(career: Career, plan: FilmPlan): Production {
+        require(plan.title.isNotBlank())
+        require(plan.budget in plan.minimumCost..career.cash)
+        val random = Random(career.seed)
+        return Production(plan, career.completed >= 2 && random.nextInt(100) < 55, random.nextInt())
+    }
+    fun finish(career: Career, production: Production, response: Response? = null): Pair<Career, FilmResult> {
+        val p = production.plan
+        require(p.budget in p.minimumCost..career.cash)
+        require(!production.event || response != null)
+        val choice = if (production.event) response else null
+        val cost = p.budget + (choice?.cost ?: 0)
+        require(cost <= career.cash)
+        val rng = Random(production.seed)
+        val craft = ((p.budget - p.cast.fee - p.director.fee) / 12).coerceIn(0, 20)
+        val quality = (p.cast.skill * .25 + p.director.skill * .45 + craft + rng.nextInt(-12, 13) + (choice?.quality ?: 0)).roundToInt().coerceIn(0, 100)
+        val demand = rng.nextInt(65, 136) / 100.0
+        val opening = (30 + p.cast.appeal * 2 + career.audience) * demand
+        val gross = (opening * (0.8 + 5 * (quality / 100.0) * (quality / 100.0))).roundToInt()
+        val rights = (p.cast.appeal * 1.2 + quality * .8).roundToInt()
+        val revenue = (gross * .45).roundToInt() + rights
+        val result = FilmResult(p.title, quality, gross, rights, revenue, cost, choice?.delay ?: 0)
+        val next = career.copy(cash = career.cash + result.profit, completed = career.completed + 1,
+            credibility = (career.credibility + if (result.profit >= 0) 4 else -5).coerceIn(0, 100),
+            audience = (career.audience + (quality - 60) / 5).coerceIn(0, 100), seed = rng.nextInt())
+        return next to result
+    }
+}
