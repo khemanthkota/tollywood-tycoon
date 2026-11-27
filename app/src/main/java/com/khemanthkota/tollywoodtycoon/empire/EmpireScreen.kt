@@ -100,7 +100,13 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var error by remember { mutableStateOf("") }
     var tab by remember { mutableStateOf("Studio") }
     var resultPopup by remember { mutableStateOf<FilmResult?>(null) }
-    LaunchedEffect(tab, foreground) { if (foreground) audio.scene(tab) }
+    LaunchedEffect(tab, foreground, resultPopup, pending) {
+        if (foreground) audio.scene(when {
+            resultPopup != null -> if ((resultPopup?.profit ?: 0) > 0) "Premiere" else "Crisis"
+            pending != null && tab == "Produce" -> "Crisis"
+            else -> tab
+        })
+    }
     val c = save.career
     fun finish(p: Production, response: Response? = null) {
         try {
