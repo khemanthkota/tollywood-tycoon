@@ -40,7 +40,7 @@ private class CareerStore(context: Context) {
         val pending = j.optJSONObject("pending")?.let { p ->
             Production(FilmPlan(p.getString("title"), Genre.valueOf(p.getString("genre")), Talent.valueOf(p.getString("cast")), Director.valueOf(p.getString("director")), p.getInt("budget")), p.getBoolean("event"), p.getInt("seed"))
         }
-        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals, Genre.values().associateWith { g -> j.optJSONObject("genreHits")?.optInt(g.name, 0) ?: 0 }), history, pending, j.optJSONArray("owned")?.let { arr -> (0 until arr.length()).map { i -> val x = arr.getJSONObject(i); StudioAsset(x.getString("id"), x.getString("technology"), "player", x.getInt("value"), x.optInt("debt",0)) } } ?: emptyList(), j.optJSONArray("research")?.let { arr -> (0 until arr.length()).map { arr.getString(it) }.toSet() } ?: emptySet(), j.optInt("stage",0), j.optString("response","").takeIf { it.isNotEmpty() }?.let { Response.valueOf(it) }, FilmCraft.values().mapNotNull { craft -> j.optJSONObject("crafts")?.optString(craft.name)?.takeIf { it.isNotEmpty() }?.let { craft to CraftInvestment.valueOf(it) } }.toMap())
+        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals, Genre.values().associateWith { g -> j.optJSONObject("genreHits")?.optInt(g.name, 0) ?: 0 }), history, pending, j.optJSONArray("owned")?.let { arr -> (0 until arr.length()).map { i -> val x = arr.getJSONObject(i); StudioAsset(x.getString("id"), x.getString("technology"), x.optString("owner","player"), x.getInt("value"), x.optInt("debt",0), x.optString("renter","").takeIf { it.isNotEmpty() }, x.optInt("bookedUntil",0), x.optBoolean("auction",false)) } } ?: emptyList(), j.optJSONArray("research")?.let { arr -> (0 until arr.length()).map { arr.getString(it) }.toSet() } ?: emptySet(), j.optInt("stage",0), j.optString("response","").takeIf { it.isNotEmpty() }?.let { Response.valueOf(it) }, FilmCraft.values().mapNotNull { craft -> j.optJSONObject("crafts")?.optString(craft.name)?.takeIf { it.isNotEmpty() }?.let { craft to CraftInvestment.valueOf(it) } }.toMap())
     }
     fun write(s: Save): Boolean {
         val c = s.career
@@ -55,7 +55,7 @@ private class CareerStore(context: Context) {
             .put("cast", p.plan.cast.name).put("director", p.plan.director.name).put("budget", p.plan.budget)
             .put("event", p.event).put("seed", p.seed) }
         val owned = JSONArray()
-        s.owned.forEach { x -> owned.put(JSONObject().put("id",x.id).put("technology",x.technologyId).put("value",x.value).put("debt",x.debt)) }
+        s.owned.forEach { x -> owned.put(JSONObject().put("id",x.id).put("technology",x.technologyId).put("value",x.value).put("debt",x.debt).put("owner",x.owner).put("renter",x.renter ?: "").put("bookedUntil",x.bookedUntil).put("auction",x.auction)) }
         return prefs.edit().putString("career", JSONObject().put("crafts",JSONObject().apply { s.crafts.forEach { (k,v) -> put(k.name,v.name) } }).put("stage",s.stage).put("response",s.response?.name ?: "").put("research",JSONArray(s.research.toList())).put("owned",owned).put("genreHits", JSONObject().apply { c.genreHits.forEach { (g, hits) -> put(g.name, hits) } }).put("pending", pending ?: JSONObject.NULL).put("rivals", rivals).put("version", 1).put("cash", c.cash)
             .put("completed", c.completed).put("credibility", c.credibility).put("audience", c.audience)
             .put("seed", c.seed).put("history", a).toString()).commit()
@@ -303,12 +303,12 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
         val eligibility = AssetEligibility(c.completed, achievements)
         val inventory = EmpireAssetCatalog.initialAssets(industry).filter { a -> save.owned.none { it.id == a.id } } + save.owned
-        val economy = AssetEconomy(inventory, mapOf("player" to c.cash))
+        val economy = AssetEconomy(inventory, c.rivals.associate { it.name to it.cash } + ("player" to c.cash)).releaseBookings(c.completed*30)
         fun transact(action: () -> AssetEconomy) {
             try {
                 val result = action()
-                val updated = save.copy(career = c.copy(cash = result.balances.getValue("player")),
-                    owned = result.assets.filter { it.owner == "player" })
+                val updated = save.copy(career = c.copy(cash = result.balances.getValue("player"), rivals = c.rivals.map { it.copy(cash = result.balances[it.name] ?: it.cash) }),
+                    owned = result.assets.filter { it.owner != null })
                 if (store.write(updated)) { save = updated; error = ""; audio.event("purchase") } else error = "Save failed."
             } catch (e: Exception) { error = e.message ?: "Asset transaction failed." }
         }
@@ -345,10 +345,15 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     onClick = { transact { economy.buy(available.first().id,"player",t.price,eligibility,industry) } }) { Text("Purchase") }
             } }
         }
-        Text("Owned assets: ${save.owned.size}")
-        save.owned.forEach { a ->
+        Text("Owned assets: ${save.owned.count { it.owner == "player" }}")
+        economy.assets.filter { it.owner == "player" }.forEach { a ->
             Text(EmpireAssetCatalog.allTechnologies.first { it.id == a.technologyId }.name + " • ₹${a.value} lakh • Debt ₹${a.debt} lakh")
-            if (a.debt == 0) {
+            if (a.renter != null) { Text("Booked by ${a.renter} until day ${a.bookedUntil}") }
+            else if (a.debt == 0) {
+                val renter = c.rivals.filter { it.cash >= a.value/10+100 }.maxByOrNull { it.cash }
+                if (renter != null) Button(enabled = pending == null, onClick = {
+                    transact { economy.rent(a.id,renter.name,c.completed*30,30,(a.value/10).coerceAtLeast(1)) }
+                }) { Text("Rent to ${renter.name} • ₹${(a.value/10).coerceAtLeast(1)} lakh") }
                 Button(enabled = pending == null && a.value >= 2, onClick = {
                     transact { economy.mortgage(a.id,"player",a.value/2) }
                 }) { Text("Borrow ₹${a.value/2} lakh") }
