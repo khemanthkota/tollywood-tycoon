@@ -24,7 +24,13 @@ private class CareerStore(context: Context) {
             val f = a.getJSONObject(it)
             FilmResult(f.getString("title"), f.getInt("quality"), f.getInt("gross"), f.getInt("rights"), f.getInt("revenue"), f.getInt("cost"), f.getInt("delay"))
         }
-        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed")), history)
+        val rivals = j.optJSONArray("rivals")?.let { arr ->
+            (0 until arr.length()).map { i ->
+                val s = arr.getJSONObject(i)
+                RivalStudio(s.getString("name"), s.getInt("cash"), Genre.valueOf(s.getString("genre")), s.getInt("ambition"))
+            }
+        } ?: EmpireMarket.initialRivals
+        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals), history)
     }
     fun write(s: Save): Boolean {
         val c = s.career
@@ -33,7 +39,9 @@ private class CareerStore(context: Context) {
             a.put(JSONObject().put("title", f.title).put("quality", f.quality).put("gross", f.gross)
                 .put("rights", f.rights).put("revenue", f.revenue).put("cost", f.cost).put("delay", f.delay))
         }
-        return prefs.edit().putString("career", JSONObject().put("version", 1).put("cash", c.cash)
+        val rivals = JSONArray()
+        c.rivals.forEach { s -> rivals.put(JSONObject().put("name", s.name).put("cash", s.cash).put("genre", s.preferredGenre.name).put("ambition", s.ambition)) }
+        return prefs.edit().putString("career", JSONObject().put("rivals", rivals).put("version", 1).put("cash", c.cash)
             .put("completed", c.completed).put("credibility", c.credibility).put("audience", c.audience)
             .put("seed", c.seed).put("history", a).toString()).commit()
     }
@@ -111,6 +119,17 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             if (c.cash < 115) Text("Insufficient capital for another film. Financing is not implemented yet.")
         }
         if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
+        if (c.completed >= 2) {
+            Text("Industry market", style = MaterialTheme.typography.titleLarge)
+            val market = EmpireMarket.round(c.seed, c.rivals)
+            market.demand.entries.sortedByDescending { it.value }.forEach { (g, d) ->
+                Text("${g.name}: ${(d * 100).toInt()}% demand")
+            }
+            c.rivals.sortedByDescending { it.cash }.forEach { s ->
+                Text("${s.name} • ₹${s.cash} lakh • ${s.preferredGenre.name}")
+            }
+            market.rivals.forEach { release -> Text("Upcoming rival release: ${release.studio} • ${release.genre.name}") }
+        }
         Text("Studio history", style = MaterialTheme.typography.titleLarge)
         save.history.asReversed().forEach { Text("${it.title} • ₹${it.profit} lakh profit/loss") }
     }
