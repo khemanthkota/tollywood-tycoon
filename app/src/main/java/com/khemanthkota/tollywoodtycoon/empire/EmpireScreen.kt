@@ -137,10 +137,11 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val c = save.career
     val monthlyPayroll = save.managers.sumOf { it.salary }
     val loanReserve = (c.cash.toLong() - FinanceLedger(c.cash,save.loans,save.overdue).month().cash).coerceAtLeast(0L)
-    val otherMovieReserve = save.slots.movies.filterNot { it.id == save.slots.selectedId }.sumOf { it.commitment().total + monthlyPayroll.toLong() + loanReserve }
+    val otherMovieReserve = save.slots.movies.sumOf { it.commitment().total + monthlyPayroll.toLong() + loanReserve }
     val productionCash = (c.cash.toLong() - loanReserve - otherMovieReserve).coerceIn(0L,Int.MAX_VALUE.toLong()).toInt()
     fun finish(p: Production, response: Response? = null) {
         try {
+            require(productionFundsAvailable(productionCash, p.plan.budget, monthlyPayroll, EmpireProductionCrafts.assess(save.crafts).extraCost, response?.cost ?: 0) >= 0) { "Insufficient reserved funds for production and payroll." }
             val (rawNext, rawFilm) = EmpireEngine.finish(c, p, response, save.crafts)
             val agreement = save.contracts.firstOrNull { it.talent == p.plan.cast.name && it.remainingFilms > 0 && it.expiresDay > c.completed*30 }
             val discount = agreement?.let { (p.plan.cast.fee-it.fee).coerceAtLeast(0) } ?: 0
