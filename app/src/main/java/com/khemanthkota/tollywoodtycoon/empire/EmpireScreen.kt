@@ -227,13 +227,16 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 Text("Committed budget: ₹${p.plan.budget} lakh")
             } }
             val extra = EmpireProductionCrafts.assess(save.crafts).extraCost
+            val payrollReserve = save.managers.sumOf { it.salary }
+            val responseReserve = save.response?.cost ?: if (p.event) Response.values().minOf { it.cost } else 0
+            Text("Payroll reserve: ₹$payrollReserve lakh • Available: ₹${c.cash-p.plan.budget-extra-payrollReserve-responseReserve} lakh")
             Text("Craft upgrades: ₹$extra lakh")
             if(save.managers.isNotEmpty()) {
                 Button(onClick={
                     var choices=save.crafts
                     val available=EmpireProductionCrafts.available(c.completed,CraftStage.values()[stage])
                     save.managers.forEach { manager ->
-                        val remaining=(c.cash-p.plan.budget-30-save.managers.sumOf { it.salary }-EmpireProductionCrafts.assess(choices).extraCost).coerceAtLeast(0)
+                        val remaining=(c.cash-p.plan.budget-responseReserve-payrollReserve-EmpireProductionCrafts.assess(choices).extraCost).coerceAtLeast(0)
                         val report=EmpireManagers.recommend(manager,ManagerPolicy(Delegation.AUTOMATIC,30),available.filter { it !in choices },remaining)
                         choices=choices+report.choices
                     }
@@ -246,7 +249,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     CraftInvestment.values().forEach { investment ->
                         val choices = save.crafts + (craft to investment)
-                        val total = p.plan.budget + EmpireProductionCrafts.assess(choices).extraCost + (save.response?.cost ?: 0)
+                        val total = p.plan.budget + EmpireProductionCrafts.assess(choices).extraCost + responseReserve + payrollReserve
                         FilterChip(selected = save.crafts[craft] == investment,
                             enabled = total <= c.cash,
                             onClick = {
@@ -263,7 +266,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             if (stage == 1 && p.event && save.response == null) {
                 Text("Equipment failure • choose a response")
                 Response.values().forEach { response ->
-                    Button(enabled = p.plan.budget + extra + response.cost <= c.cash,
+                    Button(enabled = p.plan.budget + extra + response.cost + payrollReserve <= c.cash,
                         onClick = { advance(response) }) { Text("${response.name} • ₹${response.cost} lakh") }
                 }
             } else if (stage == 3) {
@@ -298,8 +301,11 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             Director.values().forEach { d -> FilterChip(director == d, { director = d }, { Text("${d.name} • ₹${d.fee} lakh") }) }
             OutlinedTextField(budget, { budget = it.filter(Char::isDigit).take(8) }, label = { Text("Total budget (lakh)") }, singleLine = true)
             val minimum = cast.fee + director.fee + 60
+            val payrollReserve = save.managers.sumOf { it.salary }
+            val contingency = Response.values().minOf { it.cost }
             Text("Minimum budget: ₹$minimum lakh")
-            Button(enabled = title.isNotBlank() && (budget.toIntOrNull() ?: 0) in minimum..c.cash,
+            Text("Payroll: ₹$payrollReserve lakh • Contingency: ₹$contingency lakh")
+            Button(enabled = title.isNotBlank() && (budget.toIntOrNull() ?: 0) in minimum..(c.cash-payrollReserve-contingency),
                 onClick = {
                     audio.event("clapper")
                     val primary = StoryGenre.valueOf(genre.name)
