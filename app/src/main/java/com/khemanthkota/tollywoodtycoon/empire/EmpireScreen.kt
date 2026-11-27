@@ -66,6 +66,29 @@ private class CareerStore(context: Context) {
 fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val store = remember { CareerStore(context) }
+    val audio = remember { EmpireAudio() }
+    val audioPrefs = remember { context.getSharedPreferences("empire_audio", Context.MODE_PRIVATE) }
+    var musicVolume by remember { mutableStateOf(audioPrefs.getFloat("music", .25f)) }
+    var effectsVolume by remember { mutableStateOf(audioPrefs.getFloat("effects", .45f)) }
+    var audioSettings by remember { mutableStateOf(false) }
+    var foreground by remember { mutableStateOf(true) }
+    DisposableEffect(audio, context) {
+        val owner = context as? androidx.lifecycle.LifecycleOwner
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when(event) {
+                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> { foreground = false; audio.pause() }
+                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> { foreground = true; audio.resume() }
+                else -> Unit
+            }
+        }
+        owner?.lifecycle?.addObserver(observer)
+        onDispose { owner?.lifecycle?.removeObserver(observer); audio.release() }
+    }
+    LaunchedEffect(musicVolume, effectsVolume) {
+        audio.musicVolume = musicVolume
+        audio.effectsVolume = effectsVolume
+        audioPrefs.edit().putFloat("music",musicVolume).putFloat("effects",effectsVolume).apply()
+    }
     val loaded = remember { runCatching { store.load() } }
     var save by remember { mutableStateOf(loaded.getOrNull() ?: Save()) }
     var title by remember { mutableStateOf("") }
@@ -77,6 +100,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var error by remember { mutableStateOf("") }
     var tab by remember { mutableStateOf("Studio") }
     var resultPopup by remember { mutableStateOf<FilmResult?>(null) }
+    LaunchedEffect(tab, foreground) { if (foreground) audio.scene(tab) }
     val c = save.career
     fun finish(p: Production, response: Response? = null) {
         try {
@@ -87,6 +111,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             pending = null
             title = ""
             resultPopup = film
+            audio.cue(film.profit > 0)
             tab = "Studio"
             error = ""
         } catch (e: Exception) { error = e.message ?: "Cannot complete film." }
@@ -95,7 +120,22 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     Surface(modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        TextButton(onClick = onBack) { Text("Back to games") }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            TextButton(onClick = onBack) { Text("Back to games") }
+            TextButton(onClick = { audio.cue(); audioSettings = true }) { Text("Audio settings") }
+        }
+        if (audioSettings) AlertDialog(
+            onDismissRequest = { audioSettings = false },
+            title = { Text("Studio audio") },
+            text = { Column {
+                Text("Music • ${(musicVolume*100).toInt()}%")
+                Slider(value = musicVolume, onValueChange = { musicVolume = it })
+                Text("Sound effects • ${(effectsVolume*100).toInt()}%")
+                Slider(value = effectsVolume, onValueChange = { effectsVolume = it }, onValueChangeFinished = { audio.cue() })
+                TextButton(onClick = { musicVolume = 0f; effectsVolume = 0f }) { Text("Mute all") }
+            } },
+            confirmButton = { TextButton(onClick = { audioSettings = false }) { Text("Done") } }
+        )
         Text("Cinema Empire", style = MaterialTheme.typography.headlineMedium)
         Text("Producer's Life • Offline prototype")
         if (loaded.isFailure) {
@@ -106,9 +146,9 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         Text("Credibility: ${c.credibility} | Audience: ${c.audience} | Level: ${c.unlocked}")
         val tabs = listOf("Studio","Produce","Market","Assets","Career")
         ScrollableTabRow(selectedTabIndex = tabs.indexOf(tab), edgePadding = 0.dp) {
-            tabs.forEach { name -> Tab(selected = tab == name, onClick = { tab = name }, text = { Text(name) }) }
+            tabs.forEach { name -> Tab(selected = tab == name, onClick = { audio.cue(); tab = name }, text = { Text(name) }) }
         }
-        if (pending != null) TextButton(onClick = { tab = "Produce" }) { Text("Production alert • action required") }
+        if (pending != null) TextButton(onClick = { audio.cue(); tab = "Produce" }) { Text("Production alert • action required") }
         if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
         resultPopup?.let { film ->
             val animatedGross by animateIntAsState(targetValue = film.gross, animationSpec = tween(1200))
@@ -140,8 +180,8 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
         Button(onClick = { tab = "Produce" }, modifier = Modifier.fillMaxWidth()) { Text("Start / resume production") }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { tab = "Assets" }) { Text("Equipment") }
-            OutlinedButton(onClick = { tab = "Market" }) { Text("Industry") }
+            OutlinedButton(onClick = { audio.cue(); tab = "Assets" }) { Text("Equipment") }
+            OutlinedButton(onClick = { audio.cue(); tab = "Market" }) { Text("Industry") }
         }
         val last = save.history.lastOrNull()
         if (last != null) {
@@ -175,6 +215,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             Text("Minimum budget: ₹$minimum lakh")
             Button(enabled = title.isNotBlank() && (budget.toIntOrNull() ?: 0) in minimum..c.cash,
                 onClick = {
+                    audio.cue()
                     val production = EmpireEngine.start(c, FilmPlan(title.trim(), genre, cast, director, budget.toInt()))
                     if (production.event) {
                         val updated = save.copy(pending = production)
@@ -221,7 +262,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 val result = action()
                 val updated = save.copy(career = c.copy(cash = result.balances.getValue("player")),
                     owned = result.assets.filter { it.owner == "player" })
-                if (store.write(updated)) { save = updated; error = "" } else error = "Save failed."
+                if (store.write(updated)) { save = updated; error = ""; audio.cue(true) } else error = "Save failed."
             } catch (e: Exception) { error = e.message ?: "Asset transaction failed." }
         }
         Text("Research and development")
