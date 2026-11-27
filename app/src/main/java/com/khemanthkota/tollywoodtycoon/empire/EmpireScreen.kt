@@ -328,6 +328,37 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 if (store.write(updated)) { save = updated; error = "" } else error = "Save failed."
             }) { Text("Develop technology") }
         }
+        var auctionAsset by remember { mutableStateOf<StudioAsset?>(null) }
+        var bidText by remember { mutableStateOf("") }
+        auctionAsset?.let { asset ->
+            val technology = EmpireAssetCatalog.allTechnologies.first { it.id == asset.technologyId }
+            // Prototype rival experience follows industry rounds until individual careers are implemented.
+            val bidders = listOf(AssetBidder("player",eligibility,0,emptySet())) +
+                c.rivals.map { rival -> AssetBidder(rival.name,AssetEligibility(c.completed,achievements),100,
+                    when(rival.preferredGenre) {
+                        Genre.ACTION -> setOf("stunt","camera")
+                        Genre.DRAMA -> setOf("sets","lighting")
+                        Genre.COMEDY -> setOf("sound","studio")
+                        Genre.THRILLER -> setOf("camera","post")
+                        Genre.ROMANCE -> setOf("music","costume")
+                    }) }
+            val amount = bidText.toIntOrNull() ?: 0
+            AlertDialog(onDismissRequest = { auctionAsset = null },
+                title = { Text("Sealed auction • ${technology.name}") },
+                text = { Column {
+                    Text("Reserve ₹${technology.price} lakh • Rival bids are hidden")
+                    OutlinedTextField(bidText,{ bidText = it.filter(Char::isDigit).take(8) },label = { Text("Your bid (lakh)") })
+                } },
+                confirmButton = { Button(enabled = amount in technology.price..c.cash && pending == null,
+                    onClick = {
+                        val bids = bidders.drop(1).mapNotNull { EmpireAssetCompetition.rivalBid(economy,asset,it,industry) } + AssetBid("player",amount)
+                        val result = EmpireAssetCompetition.settle(economy,asset.id,bidders,bids,industry,technology.price)
+                        transact { result.economy }
+                        error = result.winner?.let { "Auction winner: ${it.studio} • ₹${it.amount} lakh" } ?: "No qualifying bids"
+                        auctionAsset = null
+                    }) { Text("Submit bid") } },
+                dismissButton = { TextButton(onClick = { auctionAsset = null }) { Text("Cancel") } })
+        }
         val listings = EmpireAssetCatalog.technologies.filter { it.id in industry.discovered } +
             EmpireTechnologyRoadmap.variants.filter { it.category == category && it.technology.id in discovered }.map { it.technology }
         Row {
@@ -343,6 +374,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 Text("Requires ${t.requiredFilms} films • ${t.requiredAchievements.joinToString().ifEmpty { "No extra achievement" }}")
                 Button(enabled = pending == null && eligible && c.cash >= t.price && available.isNotEmpty(),
                     onClick = { transact { economy.buy(available.first().id,"player",t.price,eligibility,industry) } }) { Text("Purchase") }
+                Button(enabled = pending == null && eligible && c.cash >= t.price && available.isNotEmpty(), onClick = { auctionAsset = available.first(); bidText = t.price.toString() }) { Text("Enter auction") }
             } }
         }
         Text("Owned assets: ${save.owned.count { it.owner == "player" }}")
