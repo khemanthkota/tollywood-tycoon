@@ -12,7 +12,7 @@ import androidx.compose.ui.unit.dp
 import org.json.JSONObject
 import org.json.JSONArray
 
-private data class Save(val career: Career = Career(seed = kotlin.random.Random.nextInt()), val history: List<FilmResult> = emptyList())
+private data class Save(val career: Career = Career(seed = kotlin.random.Random.nextInt()), val history: List<FilmResult> = emptyList(), val pending: Production? = null)
 private class CareerStore(context: Context) {
     private val prefs = context.getSharedPreferences("cinema_empire_v1", Context.MODE_PRIVATE)
     fun load(): Save {
@@ -30,7 +30,10 @@ private class CareerStore(context: Context) {
                 RivalStudio(s.getString("name"), s.getInt("cash"), Genre.valueOf(s.getString("genre")), s.getInt("ambition"))
             }
         } ?: EmpireMarket.initialRivals
-        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals), history)
+        val pending = j.optJSONObject("pending")?.let { p ->
+            Production(FilmPlan(p.getString("title"), Genre.valueOf(p.getString("genre")), Talent.valueOf(p.getString("cast")), Director.valueOf(p.getString("director")), p.getInt("budget")), p.getBoolean("event"), p.getInt("seed"))
+        }
+        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals), history, pending)
     }
     fun write(s: Save): Boolean {
         val c = s.career
@@ -41,7 +44,10 @@ private class CareerStore(context: Context) {
         }
         val rivals = JSONArray()
         c.rivals.forEach { s -> rivals.put(JSONObject().put("name", s.name).put("cash", s.cash).put("genre", s.preferredGenre.name).put("ambition", s.ambition)) }
-        return prefs.edit().putString("career", JSONObject().put("rivals", rivals).put("version", 1).put("cash", c.cash)
+        val pending = s.pending?.let { p -> JSONObject().put("title", p.plan.title).put("genre", p.plan.genre.name)
+            .put("cast", p.plan.cast.name).put("director", p.plan.director.name).put("budget", p.plan.budget)
+            .put("event", p.event).put("seed", p.seed) }
+        return prefs.edit().putString("career", JSONObject().put("pending", pending ?: JSONObject.NULL).put("rivals", rivals).put("version", 1).put("cash", c.cash)
             .put("completed", c.completed).put("credibility", c.credibility).put("audience", c.audience)
             .put("seed", c.seed).put("history", a).toString()).commit()
     }
@@ -58,7 +64,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var cast by remember { mutableStateOf(Talent.NEWCOMER) }
     var director by remember { mutableStateOf(Director.DEBUT) }
     var budget by remember { mutableStateOf("200") }
-    var pending by remember { mutableStateOf<Production?>(null) }
+    var pending by remember { mutableStateOf<Production?>(save.pending) }
     var error by remember { mutableStateOf("") }
     val c = save.career
     fun finish(p: Production, response: Response? = null) {
@@ -99,7 +105,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 Button(enabled = p.plan.budget + response.cost <= c.cash,
                     onClick = { finish(p, response) }) { Text("${response.name} • ₹${response.cost} lakh") }
             }
-            TextButton(onClick = { pending = null }) { Text("Cancel uncommitted production") }
+            TextButton(onClick = { val updated = save.copy(pending = null); if (store.write(updated)) { save = updated; pending = null } else error = "Save failed." }) { Text("Cancel uncommitted production") }
         } else {
             OutlinedTextField(title, { title = it }, label = { Text("Movie title") }, singleLine = true)
             Text("Genre")
@@ -114,7 +120,10 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             Button(enabled = title.isNotBlank() && (budget.toIntOrNull() ?: 0) in minimum..c.cash,
                 onClick = {
                     val production = EmpireEngine.start(c, FilmPlan(title.trim(), genre, cast, director, budget.toInt()))
-                    if (production.event) pending = production else finish(production)
+                    if (production.event) {
+                        val updated = save.copy(pending = production)
+                        if (store.write(updated)) { save = updated; pending = production } else error = "Save failed."
+                    } else finish(production)
                 }) { Text("Produce and release movie") }
             if (c.cash < 115) Text("Insufficient capital for another film. Financing is not implemented yet.")
         }
