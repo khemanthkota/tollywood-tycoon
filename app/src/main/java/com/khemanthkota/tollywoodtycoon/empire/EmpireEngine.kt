@@ -16,7 +16,7 @@ data class FilmPlan(val title: String, val genre: Genre, val cast: Talent,
     val minimumCost get() = cast.fee + director.fee + 60
 }
 data class Career(val cash: Int = 1000, val completed: Int = 0,
-    val credibility: Int = 50, val audience: Int = 20, val seed: Int = 1) {
+    val credibility: Int = 50, val audience: Int = 20, val seed: Int = 1, val rivals: List<RivalStudio> = EmpireMarket.initialRivals) {
     val unlocked get() = when {
         completed < 2 -> 1
         completed < 5 -> 2
@@ -57,7 +57,8 @@ object EmpireEngine {
             Genre.THRILLER -> 0.95
             Genre.DRAMA -> 0.85
         }
-        val demand = rng.nextInt(65, 136) / 100.0 * genreDemand
+        val market = EmpireMarket.round(career.seed, career.rivals)
+        val demand = rng.nextInt(65, 136) / 100.0 * genreDemand * market.multiplier(p.genre)
         val opening = (30 + p.cast.appeal * 2 + career.audience) * demand
         val gross = (opening * (0.8 + 5 * (quality / 100.0) * (quality / 100.0))).roundToInt()
         val rights = (p.cast.appeal * 1.2 + quality * .8).roundToInt()
@@ -65,7 +66,7 @@ object EmpireEngine {
         val result = FilmResult(p.title, quality, gross, rights, revenue, cost, choice?.delay ?: 0)
         val next = career.copy(cash = career.cash + result.profit, completed = career.completed + 1,
             credibility = (career.credibility + if (result.profit >= 0) 4 else -5).coerceIn(0, 100),
-            audience = (career.audience + (quality - 60) / 5).coerceIn(0, 100), seed = rng.nextInt())
+            audience = (career.audience + (quality - 60) / 5).coerceIn(0, 100), seed = rng.nextInt(), rivals = EmpireMarket.settle(career.rivals, market))
         return next to result
     }
 }
