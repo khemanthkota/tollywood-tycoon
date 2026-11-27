@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -68,6 +70,8 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var budget by remember { mutableStateOf("200") }
     var pending by remember { mutableStateOf<Production?>(save.pending) }
     var error by remember { mutableStateOf("") }
+    var tab by remember { mutableStateOf("Studio") }
+    var resultPopup by remember { mutableStateOf<FilmResult?>(null) }
     val c = save.career
     fun finish(p: Production, response: Response? = null) {
         try {
@@ -77,10 +81,14 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             save = updated
             pending = null
             title = ""
+            resultPopup = film
+            tab = "Studio"
             error = ""
         } catch (e: Exception) { error = e.message ?: "Cannot complete film." }
     }
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+    MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xFFFFD080), secondary = Color(0xFF75D9E8), background = Color(0xFF101522), surface = Color(0xFF192235))) {
+    Surface(modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TextButton(onClick = onBack) { Text("Back to games") }
         Text("Cinema Empire", style = MaterialTheme.typography.headlineMedium)
@@ -91,6 +99,26 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
         Text("Cash: ₹${c.cash} lakh | Films: ${c.completed}")
         Text("Credibility: ${c.credibility} | Audience: ${c.audience} | Level: ${c.unlocked}")
+        val tabs = listOf("Studio","Produce","Market","Assets","Career")
+        ScrollableTabRow(selectedTabIndex = tabs.indexOf(tab), edgePadding = 0.dp) {
+            tabs.forEach { name -> Tab(selected = tab == name, onClick = { tab = name }, text = { Text(name) }) }
+        }
+        if (pending != null) TextButton(onClick = { tab = "Produce" }) { Text("Production alert • action required") }
+        if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
+        resultPopup?.let { film ->
+            AlertDialog(onDismissRequest = { resultPopup = null }, title = { Text("Premiere • ${film.title}") },
+                text = { Text("Box office ₹${film.gross} lakh\nProfit/loss ₹${film.profit} lakh\nQuality ${film.quality}/100") },
+                confirmButton = { Button(onClick = { resultPopup = null }) { Text("Continue") } })
+        }
+        key(tab) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (tab == "Studio") {
+        Text("Studio command center", style = MaterialTheme.typography.headlineSmall)
+        Button(onClick = { tab = "Produce" }, modifier = Modifier.fillMaxWidth()) { Text("Start / resume production") }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { tab = "Assets" }) { Text("Equipment") }
+            OutlinedButton(onClick = { tab = "Market" }) { Text("Industry") }
+        }
         val last = save.history.lastOrNull()
         if (last != null) {
             Card { Column(Modifier.padding(12.dp)) {
@@ -100,6 +128,8 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 Text("Profit/loss: ₹${last.profit} lakh | Delay: ${last.delay} days")
             } }
         }
+        }
+        if (tab == "Produce") {
         val p = pending
         if (p != null) {
             Text("Equipment failure! Choose a response.")
@@ -129,8 +159,9 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 }) { Text("Produce and release movie") }
             if (c.cash < 115) Text("Insufficient capital for another film. Financing is not implemented yet.")
         }
-        if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
-        if (c.completed >= 2) {
+        }
+        if (tab == "Market" && c.completed < 2) Text("Industry reports unlock after two films.")
+        if (tab == "Market" && c.completed >= 2) {
             Text("Industry market", style = MaterialTheme.typography.titleLarge)
             val market = EmpireMarket.round(c.seed, c.rivals)
             market.demand.entries.sortedByDescending { it.value }.forEach { (g, d) ->
@@ -141,6 +172,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             }
             market.rivals.forEach { release -> Text("Upcoming rival release: ${release.studio} • ${release.genre.name}") }
         }
+        if (tab == "Assets") {
         Text("Asset marketplace", style = MaterialTheme.typography.titleLarge)
         val year = 2026 + c.completed / 4
         val discovered = setOf("digital4k","largeformat","ledstage") + save.research +
@@ -150,8 +182,8 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         var category by remember { mutableStateOf("camera") }
         var page by remember(category) { mutableStateOf(0) }
         Text("Browse asset categories")
-        EmpireTechnologyRoadmap.families.forEach { f ->
-            FilterChip(category == f.id, { category = f.id }, { Text(f.id) })
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            EmpireTechnologyRoadmap.families.forEach { f -> FilterChip(category == f.id, { category = f.id }, { Text(f.id) }) }
         }
         val achievements = buildSet {
             if (c.completed >= 8 && save.history.count { it.quality >= 75 } >= 3) add("cinematography")
@@ -219,6 +251,8 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 }) { Text("Repay principal ₹${a.debt} lakh") }
             }
         }
+        }
+        if (tab == "Career") {
         Text("Career mastery tree", style = MaterialTheme.typography.titleLarge)
         Text("Build trust in any genre. Hits require quality 60+ and at least 20% profit on cost.")
         Genre.values().forEach { g ->
@@ -233,5 +267,11 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
         Text("Studio history", style = MaterialTheme.typography.titleLarge)
         save.history.asReversed().forEach { Text("${it.title} • ₹${it.profit} lakh profit/loss") }
+    }
+}
+    }
+    }
+    }
+    }
     }
 }
