@@ -19,6 +19,9 @@ import androidx.compose.ui.unit.dp
 import org.json.JSONObject
 import org.json.JSONArray
 
+internal fun productionFundsAvailable(cash: Int, budget: Int, payroll: Int, craft: Int = 0, contingency: Int = 0): Long =
+    cash.toLong() - budget - payroll - craft - contingency
+
 private data class Save(val career: Career = Career(seed = kotlin.random.Random.nextInt()), val history: List<FilmResult> = emptyList(), val pending: Production? = null, val owned: List<StudioAsset> = emptyList(), val research: Set<String> = emptySet(), val stage: Int = 0, val response: Response? = null, val crafts: Map<FilmCraft,CraftInvestment> = emptyMap(), val contracts: List<TalentContract> = emptyList(), val loans: List<StudioLoan> = emptyList(), val overdue: Int = 0, val managers: List<StudioManager> = emptyList())
 private class CareerStore(context: Context) {
     private val prefs = context.getSharedPreferences("cinema_empire_v1", Context.MODE_PRIVATE)
@@ -249,9 +252,8 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     CraftInvestment.values().forEach { investment ->
                         val choices = save.crafts + (craft to investment)
-                        val total = p.plan.budget + EmpireProductionCrafts.assess(choices).extraCost + responseReserve + payrollReserve
                         FilterChip(selected = save.crafts[craft] == investment,
-                            enabled = total <= c.cash,
+                            enabled = productionFundsAvailable(c.cash, p.plan.budget, payrollReserve, EmpireProductionCrafts.assess(choices).extraCost, responseReserve) >= 0,
                             onClick = {
                                 val updated = save.copy(crafts = choices)
                                 if (store.write(updated)) { save = updated; audio.cue() } else error = "Save failed."
@@ -266,7 +268,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             if (stage == 1 && p.event && save.response == null) {
                 Text("Equipment failure • choose a response")
                 Response.values().forEach { response ->
-                    Button(enabled = p.plan.budget + extra + response.cost + payrollReserve <= c.cash,
+                    Button(enabled = productionFundsAvailable(c.cash, p.plan.budget, payrollReserve, extra, response.cost) >= 0,
                         onClick = { advance(response) }) { Text("${response.name} • ₹${response.cost} lakh") }
                 }
             } else if (stage == 3) {
@@ -305,7 +307,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             val contingency = Response.values().minOf { it.cost }
             Text("Minimum budget: ₹$minimum lakh")
             Text("Payroll: ₹$payrollReserve lakh • Contingency: ₹$contingency lakh")
-            Button(enabled = title.isNotBlank() && (budget.toIntOrNull() ?: 0) in minimum..(c.cash-payrollReserve-contingency),
+            Button(enabled = title.isNotBlank() && (budget.toIntOrNull() ?: 0) >= minimum && productionFundsAvailable(c.cash, budget.toIntOrNull() ?: 0, payrollReserve, contingency = contingency) >= 0,
                 onClick = {
                     audio.event("clapper")
                     val primary = StoryGenre.valueOf(genre.name)
