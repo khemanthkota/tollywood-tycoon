@@ -12,7 +12,7 @@ import androidx.compose.ui.unit.dp
 import org.json.JSONObject
 import org.json.JSONArray
 
-private data class Save(val career: Career = Career(seed = kotlin.random.Random.nextInt()), val history: List<FilmResult> = emptyList(), val pending: Production? = null)
+private data class Save(val career: Career = Career(seed = kotlin.random.Random.nextInt()), val history: List<FilmResult> = emptyList(), val pending: Production? = null, val owned: List<StudioAsset> = emptyList())
 private class CareerStore(context: Context) {
     private val prefs = context.getSharedPreferences("cinema_empire_v1", Context.MODE_PRIVATE)
     fun load(): Save {
@@ -33,7 +33,7 @@ private class CareerStore(context: Context) {
         val pending = j.optJSONObject("pending")?.let { p ->
             Production(FilmPlan(p.getString("title"), Genre.valueOf(p.getString("genre")), Talent.valueOf(p.getString("cast")), Director.valueOf(p.getString("director")), p.getInt("budget")), p.getBoolean("event"), p.getInt("seed"))
         }
-        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals, Genre.values().associateWith { g -> j.optJSONObject("genreHits")?.optInt(g.name, 0) ?: 0 }), history, pending)
+        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals, Genre.values().associateWith { g -> j.optJSONObject("genreHits")?.optInt(g.name, 0) ?: 0 }), history, pending, j.optJSONArray("owned")?.let { arr -> (0 until arr.length()).map { i -> val x = arr.getJSONObject(i); StudioAsset(x.getString("id"), x.getString("technology"), "player", x.getInt("value")) } } ?: emptyList())
     }
     fun write(s: Save): Boolean {
         val c = s.career
@@ -47,7 +47,9 @@ private class CareerStore(context: Context) {
         val pending = s.pending?.let { p -> JSONObject().put("title", p.plan.title).put("genre", p.plan.genre.name)
             .put("cast", p.plan.cast.name).put("director", p.plan.director.name).put("budget", p.plan.budget)
             .put("event", p.event).put("seed", p.seed) }
-        return prefs.edit().putString("career", JSONObject().put("genreHits", JSONObject().apply { c.genreHits.forEach { (g, hits) -> put(g.name, hits) } }).put("pending", pending ?: JSONObject.NULL).put("rivals", rivals).put("version", 1).put("cash", c.cash)
+        val owned = JSONArray()
+        s.owned.forEach { x -> owned.put(JSONObject().put("id",x.id).put("technology",x.technologyId).put("value",x.value)) }
+        return prefs.edit().putString("career", JSONObject().put("owned",owned).put("genreHits", JSONObject().apply { c.genreHits.forEach { (g, hits) -> put(g.name, hits) } }).put("pending", pending ?: JSONObject.NULL).put("rivals", rivals).put("version", 1).put("cash", c.cash)
             .put("completed", c.completed).put("credibility", c.credibility).put("audience", c.audience)
             .put("seed", c.seed).put("history", a).toString()).commit()
     }
@@ -70,7 +72,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     fun finish(p: Production, response: Response? = null) {
         try {
             val (next, film) = EmpireEngine.finish(c, p, response)
-            val updated = Save(next, save.history + film)
+            val updated = save.copy(career = next, history = save.history + film, pending = null)
             if (!store.write(updated)) { error = "Save failed. Please retry."; return }
             save = updated
             pending = null
@@ -138,6 +140,38 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 Text("${s.name} • ₹${s.cash} lakh • ${s.preferredGenre.name}")
             }
             market.rivals.forEach { release -> Text("Upcoming rival release: ${release.studio} • ${release.genre.name}") }
+        }
+        Text("Asset marketplace", style = MaterialTheme.typography.titleLarge)
+        val industry = IndustryTechnology(2026, setOf("digital4k","largeformat","ledstage"))
+        val achievements = buildSet {
+            if (c.completed >= 8 && save.history.count { it.quality >= 75 } >= 3) add("cinematography")
+            if (c.completed >= 10 && save.history.count { it.quality >= 80 } >= 3) add("technical")
+        }
+        val eligibility = AssetEligibility(c.completed, achievements)
+        val inventory = EmpireAssetCatalog.initialAssets(industry).filter { a -> save.owned.none { it.id == a.id } } + save.owned
+        val economy = AssetEconomy(inventory, mapOf("player" to c.cash))
+        fun transact(action: () -> AssetEconomy) {
+            try {
+                val result = action()
+                val updated = save.copy(career = c.copy(cash = result.balances.getValue("player")),
+                    owned = result.assets.filter { it.owner == "player" })
+                if (store.write(updated)) { save = updated; error = "" } else error = "Save failed."
+            } catch (e: Exception) { error = e.message ?: "Asset transaction failed." }
+        }
+        EmpireAssetCatalog.technologies.filter { it.id in industry.discovered }.forEach { t ->
+            val available = inventory.filter { it.technologyId == t.id && it.owner == null }
+            val eligible = AssetEconomy.eligible(t,eligibility,industry)
+            Card { Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                Text(t.name)
+                Text("₹${t.price} lakh • ${available.size} available")
+                Text("Requires ${t.requiredFilms} films • ${t.requiredAchievements.joinToString().ifEmpty { "No extra achievement" }}")
+                Button(enabled = pending == null && eligible && c.cash >= t.price && available.isNotEmpty(),
+                    onClick = { transact { economy.buy(available.first().id,"player",t.price,eligibility,industry) } }) { Text("Purchase") }
+            } }
+        }
+        Text("Owned assets: ${save.owned.size}")
+        save.owned.forEach { a ->
+            Text(EmpireAssetCatalog.allTechnologies.first { it.id == a.technologyId }.name + " • ₹${a.value} lakh")
         }
         Text("Career mastery tree", style = MaterialTheme.typography.titleLarge)
         Text("Build trust in any genre. Hits require quality 60+ and at least 20% profit on cost.")
