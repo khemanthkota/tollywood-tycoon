@@ -40,16 +40,16 @@ internal data class TheaterPortfolio(val theaters: List<OwnedTheater> = emptyLis
     }
 }
 
-internal data class ScreeningContract(val id: String,val theaterId: String,val startDay: Int,val screening: Screening) {
+internal data class ScreeningContract(val id: String,val theaterId: String,val startDay: Int,val screening: Screening,val screenIndex: Int = 0) {
     init { require(id.isNotBlank() && theaterId.isNotBlank() && startDay >= 0 && screening.days <= Int.MAX_VALUE-startDay) }
     val endDay get() = startDay + screening.days
 }
 internal data class ExhibitionCalendar(val contracts: List<ScreeningContract> = emptyList(),val settledThrough: Int = 0) {
     init { require(settledThrough >= 0) }
     fun book(contract: ScreeningContract, portfolio: TheaterPortfolio): ExhibitionCalendar {
-        require(portfolio.theaters.any { it.id == contract.theaterId })
+        require(portfolio.theaters.any { it.id == contract.theaterId && contract.screenIndex in 0 until it.screens })
         require(contract.startDay >= settledThrough)
-        require(contracts.none { it.id == contract.id || (it.theaterId == contract.theaterId && it.startDay < contract.endDay && contract.startDay < it.endDay) })
+        require(contracts.none { it.id == contract.id || (it.theaterId == contract.theaterId && it.screenIndex == contract.screenIndex && it.startDay < contract.endDay && contract.startDay < it.endDay) })
         return copy(contracts = contracts + contract)
     }
     fun settle(day: Int, portfolio: TheaterPortfolio): Pair<ExhibitionCalendar,Double> {
@@ -59,9 +59,9 @@ internal data class ExhibitionCalendar(val contracts: List<ScreeningContract> = 
             val screenedDays = active.sumOf { (minOf(day,it.endDay)-maxOf(settledThrough,it.startDay)).coerceAtLeast(0) }
             val revenue = active.sumOf { contract ->
                 val days = (minOf(day,contract.endDay)-maxOf(settledThrough,contract.startDay)).coerceAtLeast(0)
-                if(days == 0) 0.0 else TheaterBusiness.screen(theater,contract.screening.copy(days=days)).theaterProfit
+                if(days == 0) 0.0 else TheaterBusiness.screen(theater.copy(screens=1,dailyOperatingLakh=theater.dailyOperatingLakh/theater.screens),contract.screening.copy(days=days)).theaterProfit
             }
-            revenue - (day-settledThrough-screenedDays)*theater.dailyOperatingLakh
+            revenue - ((day-settledThrough).toLong()*theater.screens-screenedDays)*theater.dailyOperatingLakh/theater.screens
         }
         return copy(settledThrough=day) to earnings
     }
