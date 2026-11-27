@@ -34,6 +34,9 @@ class EmpireAudio {
         music?.release(); music = null; currentScene = name
         val roots = when(name) {
             "Produce" -> intArrayOf(48,53,55,50)
+            "Premiere" -> intArrayOf(48,53,55,60)
+            "Crisis" -> intArrayOf(45,46,42,43)
+            "Awards" -> intArrayOf(48,52,55,60)
             "Market" -> intArrayOf(45,48,50,43)
             "Assets" -> intArrayOf(50,53,57,48)
             else -> intArrayOf(48,55,53,50)
@@ -45,11 +48,16 @@ class EmpireAudio {
             val time = local.toDouble()/rate
             val root = roots[i/bar]
             val envelope = minOf(1.0,local/2200.0,(bar-local)/4400.0)
-            val chord = intArrayOf(0,3,7,12).sumOf { step ->
+            val chord = intArrayOf(0,if(name == "Premiere" || name == "Awards") 4 else 3,7,12).sumOf { step ->
                 val f = 440.0*Math.pow(2.0,(root+step-69)/12.0)
                 sin(2*PI*f*time)*.08 + sin(4*PI*f*time)*.015
             }
-            (chord*envelope*22000).toInt().toShort()
+            val beat = time % .5
+            val bass = sin(2*PI*55*time)*kotlin.math.exp(-beat*18)*.07
+            val melodyNote = root + intArrayOf(12,19,15,24)[(time*2).toInt().coerceIn(0,3)]
+            val melodyHz = 440.0*Math.pow(2.0,(melodyNote-69)/12.0)
+            val melody = sin(2*PI*melodyHz*time)*kotlin.math.exp(-beat*5)*.045
+            ((chord + bass + melody)*envelope*22000).toInt().coerceIn(-32768,32767).toShort()
         }
         runCatching { music = track(samples,musicVolume).also { it.setLoopPoints(0,samples.size,-1); it.play() } }
     }
