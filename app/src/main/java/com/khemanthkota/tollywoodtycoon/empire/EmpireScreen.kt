@@ -70,6 +70,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val audioPrefs = remember { context.getSharedPreferences("empire_audio", Context.MODE_PRIVATE) }
     var musicVolume by remember { mutableStateOf(audioPrefs.getFloat("music", .25f)) }
     var effectsVolume by remember { mutableStateOf(audioPrefs.getFloat("effects", .45f)) }
+    var ambienceVolume by remember { mutableStateOf(audioPrefs.getFloat("ambience", .18f)) }
     var audioSettings by remember { mutableStateOf(false) }
     var foreground by remember { mutableStateOf(true) }
     DisposableEffect(audio, context) {
@@ -84,10 +85,11 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         owner?.lifecycle?.addObserver(observer)
         onDispose { owner?.lifecycle?.removeObserver(observer); audio.release() }
     }
-    LaunchedEffect(musicVolume, effectsVolume) {
+    LaunchedEffect(musicVolume, effectsVolume, ambienceVolume) {
         audio.musicVolume = musicVolume
         audio.effectsVolume = effectsVolume
-        audioPrefs.edit().putFloat("music",musicVolume).putFloat("effects",effectsVolume).apply()
+        audio.ambienceVolume = ambienceVolume
+        audioPrefs.edit().putFloat("music",musicVolume).putFloat("effects",effectsVolume).putFloat("ambience",ambienceVolume).apply()
     }
     val loaded = remember { runCatching { store.load() } }
     var save by remember { mutableStateOf(loaded.getOrNull() ?: Save()) }
@@ -138,7 +140,9 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 Slider(value = musicVolume, onValueChange = { musicVolume = it })
                 Text("Sound effects • ${(effectsVolume*100).toInt()}%")
                 Slider(value = effectsVolume, onValueChange = { effectsVolume = it }, onValueChangeFinished = { audio.cue() })
-                TextButton(onClick = { musicVolume = 0f; effectsVolume = 0f }) { Text("Mute all") }
+                Text("Studio ambience • ${(ambienceVolume*100).toInt()}%")
+                Slider(value = ambienceVolume, onValueChange = { ambienceVolume = it })
+                TextButton(onClick = { musicVolume = 0f; effectsVolume = 0f; ambienceVolume = 0f }) { Text("Mute all") }
             } },
             confirmButton = { TextButton(onClick = { audioSettings = false }) { Text("Done") } }
         )
