@@ -28,3 +28,16 @@ internal object ReleaseSurprises {
         }
     }
 }
+
+internal object StreamingMarket {
+    fun offers(plan: FilmPlan, credibility: Int, seed: Int): List<RightsOffer> {
+        require(credibility in 0..100)
+        val rng = Random(seed)
+        val base = plan.cast.appeal + plan.director.skill + credibility
+        return listOf(
+            RightsOffer("StreamVista", RightsCategory.OTT, base * rng.nextInt(65,91) / 100, theatricalWindowDays = 56),
+            RightsOffer("CinemaPlus", RightsCategory.OTT, base * rng.nextInt(45,66) / 100, base / 2, plan.budget, 28),
+            RightsOffer("PremierePlay", RightsCategory.OTT, base * rng.nextInt(95,131) / 100, directStreaming = true)
+        )
+    }
+}
