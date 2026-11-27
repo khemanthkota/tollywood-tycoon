@@ -10,6 +10,9 @@ import kotlin.math.sin
 class EmpireAudio {
     private var music: AudioTrack? = null
     private var effect: AudioTrack? = null
+    private var ambience: AudioTrack? = null
+    var ambienceVolume = .18f
+        set(value) { field = value.coerceIn(0f,1f); ambience?.setVolume(field) }
     private var currentScene: String? = null
     var musicVolume = .25f
         set(value) { field = value.coerceIn(0f,1f); music?.setVolume(field) }
@@ -32,6 +35,17 @@ class EmpireAudio {
     fun scene(name: String) {
         if (currentScene == name && music != null) return
         music?.release(); music = null; currentScene = name
+        ambience?.release(); ambience = null
+        if (name == "Produce" || name == "Studio") {
+            val random = kotlin.random.Random(42)
+            var filtered = 0.0
+            val room = ShortArray(22050*4) { i ->
+                filtered = filtered*.94 + (random.nextDouble()-.5)*.06
+                val fade = minOf(1.0,i/1000.0,(88200-i)/1000.0)
+                ((filtered*3500 + sin(2*PI*60*i/22050.0)*120)*fade).toInt().toShort()
+            }
+            runCatching { ambience = track(room,ambienceVolume).also { it.setLoopPoints(0,room.size,-1); it.play() } }
+        }
         val roots = when(name) {
             "Produce" -> intArrayOf(48,53,55,50)
             "Premiere" -> intArrayOf(48,53,55,60)
@@ -72,7 +86,7 @@ class EmpireAudio {
         }
         runCatching { effect = track(samples,effectsVolume).also { it.play() } }
     }
-    fun pause() { runCatching { music?.pause(); effect?.pause() } }
-    fun resume() { runCatching { music?.play() } }
-    fun release() { music?.release(); effect?.release(); music=null; effect=null; currentScene=null }
+    fun pause() { runCatching { music?.pause(); effect?.pause(); ambience?.pause() } }
+    fun resume() { runCatching { music?.play(); ambience?.play() } }
+    fun release() { ambience?.release(); ambience=null; music?.release(); effect?.release(); music=null; effect=null; currentScene=null }
 }
