@@ -48,7 +48,8 @@ object EmpireEngine {
         }
         return Production(plan, career.completed >= 2 && random.nextInt(100) < 55, random.nextInt(), capability)
     }
-    fun finish(career: Career, production: Production, response: Response? = null, crafts: Map<FilmCraft,CraftInvestment> = emptyMap()): Pair<Career, FilmResult> {
+    fun finish(career: Career, production: Production, response: Response? = null, crafts: Map<FilmCraft,CraftInvestment> = emptyMap()): Pair<Career, FilmResult> = finishWithRelease(career,production,response,crafts,null)
+    internal fun finishWithRelease(career: Career, production: Production, response: Response?, crafts: Map<FilmCraft,CraftInvestment>, forecast: ReleaseForecast?): Pair<Career, FilmResult> {
         val p = production.plan
         require(p.budget in p.minimumCost..career.cash)
         require(!production.event || response != null)
@@ -73,7 +74,8 @@ object EmpireEngine {
         val market = EmpireMarket.round(career.seed, career.rivals)
         val demand = rng.nextInt(65, 136) / 100.0 * genreDemand * market.multiplier(p.genre) * EmpireMastery.multiplier(career.genreHits[p.genre] ?: 0)
         val opening = (30 + p.cast.appeal * 2 + career.audience) * demand
-        val gross = (opening * (0.8 + 5 * (quality / 100.0) * (quality / 100.0))).roundToInt()
+        val releaseFactor = forecast?.let { it.occupancy / (.15 + p.cast.appeal * .006) } ?: 1.0
+        val gross = (opening * (0.8 + 5 * (quality / 100.0) * (quality / 100.0)) * releaseFactor).roundToInt()
         val rights = (p.cast.appeal * 1.2 + quality * .8).roundToInt()
         val revenue = (gross * .45).roundToInt() + rights
         val result = FilmResult(p.title, quality, gross, rights, revenue, cost, choice?.delay ?: 0)
