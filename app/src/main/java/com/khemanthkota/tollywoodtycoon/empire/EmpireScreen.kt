@@ -234,6 +234,20 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             val responseReserve = save.response?.cost ?: if (p.event) Response.values().minOf { it.cost } else 0
             Text("Payroll reserve: ₹$payrollReserve lakh • Available: ₹${c.cash-p.plan.budget-extra-payrollReserve-responseReserve} lakh")
             Text("Craft upgrades: ₹$extra lakh")
+            val assessment = EmpireProductionCrafts.assess(save.crafts)
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Production decision review", style = MaterialTheme.typography.titleMedium)
+                    Text("Base film: ₹${p.plan.budget}L • Craft investment: ₹${assessment.extraCost}L")
+                    Text("Payroll: ₹${payrollReserve}L • Crisis reserve: ₹${responseReserve}L")
+                    Text("Uncommitted cash: ₹${productionFundsAvailable(c.cash,p.plan.budget,payrollReserve,extra,responseReserve)}L")
+                    Text("Selected craft decisions: ${save.crafts.size}")
+                    save.crafts.entries.forEach { (craft, investment) ->
+                        Text("${craft.name.replace('_',' ')}: ${investment.name} (+₹${investment.cost}L)")
+                    }
+                    Text("Choices are saved with your production and affect the final film.")
+                }
+            }
             if(save.managers.isNotEmpty()) {
                 Button(onClick={
                     var choices=save.crafts
@@ -267,9 +281,10 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             }
             if (stage == 1 && p.event && save.response == null) {
                 Text("Equipment failure • choose a response")
+                Text("Compare the cash remaining after each response before committing.")
                 Response.values().forEach { response ->
                     Button(enabled = productionFundsAvailable(c.cash, p.plan.budget, payrollReserve, extra, response.cost) >= 0,
-                        onClick = { advance(response) }) { Text("${response.name} • ₹${response.cost} lakh") }
+                        onClick = { advance(response) }) { Text("${response.name} • ₹${response.cost}L • Left ₹${productionFundsAvailable(c.cash,p.plan.budget,payrollReserve,extra,response.cost)}L") }
                 }
             } else if (stage == 3) {
                 Button(onClick = { finish(p,save.response) }) { Text("Premiere movie") }
