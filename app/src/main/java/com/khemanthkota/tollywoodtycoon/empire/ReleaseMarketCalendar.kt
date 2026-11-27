@@ -27,3 +27,28 @@ internal data class ReleaseMarketCalendar(val holidays: List<MarketHoliday> = em
         return (openingOccupancy*Math.pow(retention,daysSinceRelease.toDouble()/3)).coerceIn(0.0,1.0)
     }
 }
+
+internal object ReleaseSeasonPlanner {
+    // Fictional 365-day game years, with approximate festival seasons rather than civil dates.
+    fun year(year: Int, region: String, seed: Int): ReleaseMarketCalendar {
+        require(year in 0..(Int.MAX_VALUE/365-1) && region.isNotBlank())
+        val offset = year*365
+        val holidays = mutableListOf<MarketHoliday>()
+        fun period(start: Int, duration: Int, name: String, boost: Double) {
+            repeat(duration) { holidays.add(MarketHoliday(offset+start+it,name,region,boost)) }
+        }
+        period(25,3,"Republic Day season",.25)
+        period(120,14,"Summer vacation",.20)
+        period(350,10,"Year-end holidays",.35)
+        if(region.equals("Telugu",true) || region.equals("Tamil",true)) period(12,5,"Harvest festival season",.65)
+        period(280,5,"Dussehra season",.45)
+        period(305,5,"Diwali season",.55)
+        val rng = kotlin.random.Random(seed xor year xor region.hashCode())
+        val peakDays = holidays.map { it.day }.distinct()
+        val rivals = (0 until 24).map { index ->
+            val day = if(index%3==0) peakDays[rng.nextInt(peakDays.size)] else offset+rng.nextInt(365)
+            AnnouncedRelease("$year-$region-$index","Rival film ${index+1}",day,region,rng.nextInt(30,96),rng.nextInt(5,31))
+        }
+        return ReleaseMarketCalendar(holidays,rivals)
+    }
+}
