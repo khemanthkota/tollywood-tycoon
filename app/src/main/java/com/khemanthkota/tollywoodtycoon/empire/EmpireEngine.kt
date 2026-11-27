@@ -48,19 +48,21 @@ object EmpireEngine {
         }
         return Production(plan, career.completed >= 2 && random.nextInt(100) < 55, random.nextInt(), capability)
     }
-    fun finish(career: Career, production: Production, response: Response? = null): Pair<Career, FilmResult> {
+    fun finish(career: Career, production: Production, response: Response? = null, crafts: Map<FilmCraft,CraftInvestment> = emptyMap()): Pair<Career, FilmResult> {
         val p = production.plan
         require(p.budget in p.minimumCost..career.cash)
         require(!production.event || response != null)
         val choice = if (production.event) response else null
-        val cost = p.budget + (choice?.cost ?: 0)
+        val assessment = EmpireProductionCrafts.assess(crafts)
+        val cost = p.budget + (choice?.cost ?: 0) + assessment.extraCost
         require(cost <= career.cash)
         val rng = Random(production.seed)
         val craft = ((p.budget - p.cast.fee - p.director.fee) / 12).coerceIn(0, 20)
         val baseQuality = (p.cast.skill * .25 + p.director.skill * .45 + craft + rng.nextInt(-12, 13) + (choice?.quality ?: 0)).roundToInt().coerceIn(0, 100)
+        val adjustedQuality = (baseQuality + (assessment.quality-70)*.5).roundToInt().coerceIn(0,100)
         val quality = production.capability?.let {
-            (baseQuality * .65 + it.qualityPotential * .35).roundToInt().coerceIn(0,100)
-        } ?: baseQuality
+            (adjustedQuality * .65 + it.qualityPotential * .35).roundToInt().coerceIn(0,100)
+        } ?: adjustedQuality
         val genreDemand = when (p.genre) {
             Genre.ACTION -> 1.15
             Genre.COMEDY -> 1.05
