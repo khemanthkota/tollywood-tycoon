@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.dp
 import org.json.JSONObject
 import org.json.JSONArray
 
-private data class Save(val career: Career = Career(seed = kotlin.random.Random.nextInt()), val history: List<FilmResult> = emptyList(), val pending: Production? = null, val owned: List<StudioAsset> = emptyList(), val research: Set<String> = emptySet())
+private data class Save(val career: Career = Career(seed = kotlin.random.Random.nextInt()), val history: List<FilmResult> = emptyList(), val pending: Production? = null, val owned: List<StudioAsset> = emptyList(), val research: Set<String> = emptySet(), val stage: Int = 0, val response: Response? = null)
 private class CareerStore(context: Context) {
     private val prefs = context.getSharedPreferences("cinema_empire_v1", Context.MODE_PRIVATE)
     fun load(): Save {
@@ -40,7 +40,7 @@ private class CareerStore(context: Context) {
         val pending = j.optJSONObject("pending")?.let { p ->
             Production(FilmPlan(p.getString("title"), Genre.valueOf(p.getString("genre")), Talent.valueOf(p.getString("cast")), Director.valueOf(p.getString("director")), p.getInt("budget")), p.getBoolean("event"), p.getInt("seed"))
         }
-        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals, Genre.values().associateWith { g -> j.optJSONObject("genreHits")?.optInt(g.name, 0) ?: 0 }), history, pending, j.optJSONArray("owned")?.let { arr -> (0 until arr.length()).map { i -> val x = arr.getJSONObject(i); StudioAsset(x.getString("id"), x.getString("technology"), "player", x.getInt("value"), x.optInt("debt",0)) } } ?: emptyList(), j.optJSONArray("research")?.let { arr -> (0 until arr.length()).map { arr.getString(it) }.toSet() } ?: emptySet())
+        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals, Genre.values().associateWith { g -> j.optJSONObject("genreHits")?.optInt(g.name, 0) ?: 0 }), history, pending, j.optJSONArray("owned")?.let { arr -> (0 until arr.length()).map { i -> val x = arr.getJSONObject(i); StudioAsset(x.getString("id"), x.getString("technology"), "player", x.getInt("value"), x.optInt("debt",0)) } } ?: emptyList(), j.optJSONArray("research")?.let { arr -> (0 until arr.length()).map { arr.getString(it) }.toSet() } ?: emptySet(), j.optInt("stage",0), j.optString("response","").takeIf { it.isNotEmpty() }?.let { Response.valueOf(it) })
     }
     fun write(s: Save): Boolean {
         val c = s.career
@@ -56,7 +56,7 @@ private class CareerStore(context: Context) {
             .put("event", p.event).put("seed", p.seed) }
         val owned = JSONArray()
         s.owned.forEach { x -> owned.put(JSONObject().put("id",x.id).put("technology",x.technologyId).put("value",x.value).put("debt",x.debt)) }
-        return prefs.edit().putString("career", JSONObject().put("research",JSONArray(s.research.toList())).put("owned",owned).put("genreHits", JSONObject().apply { c.genreHits.forEach { (g, hits) -> put(g.name, hits) } }).put("pending", pending ?: JSONObject.NULL).put("rivals", rivals).put("version", 1).put("cash", c.cash)
+        return prefs.edit().putString("career", JSONObject().put("stage",s.stage).put("response",s.response?.name ?: "").put("research",JSONArray(s.research.toList())).put("owned",owned).put("genreHits", JSONObject().apply { c.genreHits.forEach { (g, hits) -> put(g.name, hits) } }).put("pending", pending ?: JSONObject.NULL).put("rivals", rivals).put("version", 1).put("cash", c.cash)
             .put("completed", c.completed).put("credibility", c.credibility).put("audience", c.audience)
             .put("seed", c.seed).put("history", a).toString()).commit()
     }
@@ -102,10 +102,10 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var error by remember { mutableStateOf("") }
     var tab by remember { mutableStateOf("Studio") }
     var resultPopup by remember { mutableStateOf<FilmResult?>(null) }
-    LaunchedEffect(tab, foreground, resultPopup, pending) {
+    LaunchedEffect(tab, foreground, resultPopup, pending, save.stage, save.response) {
         if (foreground) audio.scene(when {
             resultPopup != null -> if ((resultPopup?.profit ?: 0) > 0) "Premiere" else "Crisis"
-            pending != null && tab == "Produce" -> "Crisis"
+            pending?.event == true && save.stage == 1 && save.response == null && tab == "Produce" -> "Crisis"
             else -> tab
         })
     }
@@ -113,7 +113,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     fun finish(p: Production, response: Response? = null) {
         try {
             val (next, film) = EmpireEngine.finish(c, p, response)
-            val updated = save.copy(career = next, history = save.history + film, pending = null)
+            val updated = save.copy(career = next, history = save.history + film, pending = null, stage = 0, response = null)
             if (!store.write(updated)) { error = "Save failed. Please retry."; return }
             save = updated
             pending = null
@@ -158,7 +158,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         ScrollableTabRow(selectedTabIndex = tabs.indexOf(tab), edgePadding = 0.dp) {
             tabs.forEach { name -> Tab(selected = tab == name, onClick = { audio.cue(); tab = name }, text = { Text(name) }) }
         }
-        if (pending != null) TextButton(onClick = { audio.cue(); tab = "Produce" }) { Text("Production alert • action required") }
+        if (pending != null) TextButton(onClick = { audio.cue(); tab = "Produce" }) { Text("Active production • resume") }
         if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
         resultPopup?.let { film ->
             val animatedGross by animateIntAsState(targetValue = film.gross, animationSpec = tween(1200))
@@ -206,12 +206,34 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         if (tab == "Produce") {
         val p = pending
         if (p != null) {
-            Text("Equipment failure! Choose a response.")
-            Response.values().forEach { response ->
-                Button(enabled = p.plan.budget + response.cost <= c.cash,
-                    onClick = { finish(p, response) }) { Text("${response.name} • ₹${response.cost} lakh") }
+            val stages = listOf("Pre-production","Principal photography","Post-production","Premiere")
+            val stage = save.stage.coerceIn(0,3)
+            Text(p.plan.title, style = MaterialTheme.typography.headlineSmall)
+            Text("Stage ${stage+1} of 4 • ${stages[stage]}")
+            LinearProgressIndicator(progress = (stage+1)/4f, modifier = Modifier.fillMaxWidth())
+            Card { Column(Modifier.padding(16.dp)) {
+                Text(listOf("Finalize cast and production budget.","Shoot the movie on set.","Complete editing and prepare the release.","Release the film and reveal box office results.")[stage])
+                Text("Committed budget: ₹${p.plan.budget} lakh")
+            } }
+            fun advance(response: Response? = save.response) {
+                val updated = save.copy(stage = stage+1, response = response)
+                if (store.write(updated)) { save = updated; audio.event("clapper"); error = "" } else error = "Save failed."
             }
-            TextButton(onClick = { val updated = save.copy(pending = null); if (store.write(updated)) { save = updated; pending = null } else error = "Save failed." }) { Text("Cancel uncommitted production") }
+            if (stage == 1 && p.event && save.response == null) {
+                Text("Equipment failure • choose a response")
+                Response.values().forEach { response ->
+                    Button(enabled = p.plan.budget + response.cost <= c.cash,
+                        onClick = { advance(response) }) { Text("${response.name} • ₹${response.cost} lakh") }
+                }
+            } else if (stage == 3) {
+                Button(onClick = { finish(p,save.response) }) { Text("Premiere movie") }
+            } else {
+                Button(onClick = { advance() }) { Text("Complete ${stages[stage]}") }
+            }
+            if (stage == 0) TextButton(onClick = {
+                val updated = save.copy(pending = null, stage = 0, response = null)
+                if (store.write(updated)) { save = updated; pending = null } else error = "Save failed."
+            }) { Text("Cancel uncommitted production") }
         } else {
             OutlinedTextField(title, { title = it }, label = { Text("Movie title") }, singleLine = true)
             Text("Genre")
@@ -227,11 +249,9 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 onClick = {
                     audio.event("clapper")
                     val production = EmpireEngine.start(c, FilmPlan(title.trim(), genre, cast, director, budget.toInt()))
-                    if (production.event) {
-                        val updated = save.copy(pending = production)
-                        if (store.write(updated)) { save = updated; pending = production; audio.event("crisis") } else error = "Save failed."
-                    } else finish(production)
-                }) { Text("Produce and release movie") }
+                    val updated = save.copy(pending = production, stage = 0, response = null)
+                    if (store.write(updated)) { save = updated; pending = production } else error = "Save failed."
+                }) { Text("Greenlight movie") }
             if (c.cash < 115) Text("Insufficient capital for another film. Financing is not implemented yet.")
         }
         }
