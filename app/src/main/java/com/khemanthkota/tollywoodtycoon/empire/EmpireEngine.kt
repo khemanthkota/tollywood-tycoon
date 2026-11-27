@@ -73,7 +73,8 @@ object EmpireEngine {
         val market = EmpireMarket.round(career.seed, career.rivals)
         val demand = rng.nextInt(65, 136) / 100.0 * genreDemand * market.multiplier(p.genre) * EmpireMastery.multiplier(career.genreHits[p.genre] ?: 0)
         val opening = (30 + p.cast.appeal * 2 + career.audience) * demand
-        val gross = (opening * (0.8 + 5 * (quality / 100.0) * (quality / 100.0))).roundToInt()
+        val surprise = ReleaseSurprises.outcome(production.seed xor 0x5A17, quality)
+        val gross = (opening * (0.8 + 5 * (quality / 100.0) * (quality / 100.0)) * surprise.multiplier).roundToInt()
         val rights = (p.cast.appeal * 1.2 + quality * .8).roundToInt()
         val revenue = (gross * .45).roundToInt() + rights
         val result = FilmResult(p.title, quality, gross, rights, revenue, cost, choice?.delay ?: 0)
