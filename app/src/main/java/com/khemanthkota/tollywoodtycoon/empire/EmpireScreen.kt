@@ -146,6 +146,8 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             val payroll = save.managers.sumOf { it.salary }
             require(next.cash >= payroll) { "Insufficient cash for manager payroll" }
             val finance = FinanceLedger(next.cash-payroll,save.loans,save.overdue).month()
+            val reserved = save.slots.movies.filterNot { it.id == save.slots.selectedId }.sumOf { it.commitment().total + payroll.toLong() }
+            require(finance.cash.toLong() >= reserved) { "Settlement would consume funds reserved for other productions." }
             val updated = save.copy(career = next.copy(cash=finance.cash), loans=finance.loans, overdue=finance.overdue, history = save.history + film, contracts = updatedContracts, pending = null, stage = 0, response = null, crafts = emptyMap())
             if (!store.write(updated)) { error = "Save failed. Please retry."; return }
             save = updated
