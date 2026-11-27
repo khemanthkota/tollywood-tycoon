@@ -383,7 +383,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
         }
         if (tab == "Market" && c.completed < 2) Text("Industry reports unlock after two films.")
-        if (tab == "Market" && c.completed >= 2) {
+        if (tab == "Market" && c.completed >= 2 && pending == null && save.slots.movies.isEmpty()) {
             Text("Industry market", style = MaterialTheme.typography.titleLarge)
             val market = EmpireMarket.round(c.seed, c.rivals)
             market.demand.entries.sortedByDescending { it.value }.forEach { (g, d) ->
