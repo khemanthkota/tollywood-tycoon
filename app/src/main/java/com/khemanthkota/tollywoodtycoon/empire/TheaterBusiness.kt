@@ -76,3 +76,14 @@ internal object TheaterDemand {
         return ((.05 + popularity / 100.0 * .95) * regionalAppeal * priceFactor * competition * decay).coerceIn(0.0,1.0)
     }
 }
+
+internal data class ScreeningRecommendation(val screening: Screening,val expectedProfitLakh: Double)
+internal object TheaterManager {
+    fun recommend(theater: OwnedTheater, candidates: List<Screening>): List<ScreeningRecommendation> {
+        val screen = theater.copy(screens=1,dailyOperatingLakh=theater.dailyOperatingLakh/theater.screens)
+        return candidates.map { candidate ->
+            val result = TheaterBusiness.screen(screen,candidate)
+            ScreeningRecommendation(candidate,result.theaterProfit)
+        }.sortedByDescending { it.expectedProfitLakh }
+    }
+}
