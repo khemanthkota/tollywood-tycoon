@@ -50,7 +50,14 @@ object EmpireEngine {
         val rng = Random(production.seed)
         val craft = ((p.budget - p.cast.fee - p.director.fee) / 12).coerceIn(0, 20)
         val quality = (p.cast.skill * .25 + p.director.skill * .45 + craft + rng.nextInt(-12, 13) + (choice?.quality ?: 0)).roundToInt().coerceIn(0, 100)
-        val demand = rng.nextInt(65, 136) / 100.0
+        val genreDemand = when (p.genre) {
+            Genre.ACTION -> 1.15
+            Genre.COMEDY -> 1.05
+            Genre.ROMANCE -> 1.0
+            Genre.THRILLER -> 0.95
+            Genre.DRAMA -> 0.85
+        }
+        val demand = rng.nextInt(65, 136) / 100.0 * genreDemand
         val opening = (30 + p.cast.appeal * 2 + career.audience) * demand
         val gross = (opening * (0.8 + 5 * (quality / 100.0) * (quality / 100.0))).roundToInt()
         val rights = (p.cast.appeal * 1.2 + quality * .8).roundToInt()
