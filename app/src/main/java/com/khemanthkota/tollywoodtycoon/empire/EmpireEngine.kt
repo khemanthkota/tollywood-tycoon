@@ -12,7 +12,7 @@ enum class Director(val fee: Int, val skill: Int) {
     DEBUT(20, 68), EXPERIENCED(75, 82), PREMIUM(150, 91)
 }
 data class FilmPlan(val title: String, val genre: Genre, val cast: Talent,
-    val director: Director, val budget: Int) {
+    val director: Director, val budget: Int, val hybrid: HybridFilm? = null) {
     val minimumCost get() = cast.fee + director.fee + 60
 }
 data class Career(val cash: Int = 1000, val completed: Int = 0,
@@ -28,17 +28,25 @@ data class Career(val cash: Int = 1000, val completed: Int = 0,
 enum class Response(val cost: Int, val quality: Int, val delay: Int) {
     REPAIR(15, 0, 3), RENT(30, 2, 1), COMPROMISE(0, -9, 0)
 }
-data class Production(val plan: FilmPlan, val event: Boolean, val seed: Int)
+data class Production(val plan: FilmPlan, val event: Boolean, val seed: Int, val capability: CapabilityAssessment? = null)
 data class FilmResult(val title: String, val quality: Int, val gross: Int,
     val rights: Int, val revenue: Int, val cost: Int, val delay: Int) {
     val profit get() = revenue - cost
 }
 object EmpireEngine {
-    fun start(career: Career, plan: FilmPlan): Production {
+    fun start(career: Career, plan: FilmPlan, economy: AssetEconomy? = null,
+              studio: String = "player", startDay: Int = 0, endDay: Int = 30,
+              hiredCapabilities: Map<String,Int> = emptyMap()): Production {
         require(plan.title.isNotBlank())
         require(plan.budget in plan.minimumCost..career.cash)
         val random = Random(career.seed)
-        return Production(plan, career.completed >= 2 && random.nextInt(100) < 55, random.nextInt())
+        val capability = plan.hybrid?.let { film ->
+            require(economy != null) { "Hybrid production requires an asset economy" }
+            val director = CreativeDirector(plan.director.skill, plan.director.skill,
+                plan.director.skill, setOf(film.primary))
+            EmpireProductionCapabilities.assess(film,director,economy,studio,startDay,endDay,hiredCapabilities)
+        }
+        return Production(plan, career.completed >= 2 && random.nextInt(100) < 55, random.nextInt(), capability)
     }
     fun finish(career: Career, production: Production, response: Response? = null): Pair<Career, FilmResult> {
         val p = production.plan
@@ -49,7 +57,10 @@ object EmpireEngine {
         require(cost <= career.cash)
         val rng = Random(production.seed)
         val craft = ((p.budget - p.cast.fee - p.director.fee) / 12).coerceIn(0, 20)
-        val quality = (p.cast.skill * .25 + p.director.skill * .45 + craft + rng.nextInt(-12, 13) + (choice?.quality ?: 0)).roundToInt().coerceIn(0, 100)
+        val baseQuality = (p.cast.skill * .25 + p.director.skill * .45 + craft + rng.nextInt(-12, 13) + (choice?.quality ?: 0)).roundToInt().coerceIn(0, 100)
+        val quality = production.capability?.let {
+            (baseQuality * .65 + it.qualityPotential * .35).roundToInt().coerceIn(0,100)
+        } ?: baseQuality
         val genreDemand = when (p.genre) {
             Genre.ACTION -> 1.15
             Genre.COMEDY -> 1.05
