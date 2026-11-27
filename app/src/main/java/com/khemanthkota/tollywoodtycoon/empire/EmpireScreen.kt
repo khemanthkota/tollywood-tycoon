@@ -150,7 +150,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             val payroll = save.managers.sumOf { it.salary }
             require(next.cash >= payroll) { "Insufficient cash for manager payroll" }
             val finance = FinanceLedger(next.cash-payroll,save.loans,save.overdue).month()
-            val reserved = save.slots.movies.filterNot { it.id == save.slots.selectedId }.sumOf { it.commitment().total + payroll.toLong() }
+            val reserved = save.slots.movies.sumOf { it.commitment().total + payroll.toLong() + loanReserve }
             require(finance.cash.toLong() >= reserved) { "Settlement would consume funds reserved for other productions." }
             val updated = save.copy(career = next.copy(cash=finance.cash), loans=finance.loans, overdue=finance.overdue, history = save.history + film, contracts = updatedContracts, pending = null, stage = 0, response = null, crafts = emptyMap())
             if (!store.write(updated)) { error = "Save failed. Please retry."; return }
@@ -243,6 +243,26 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
         }
         if (tab == "Produce") {
+            Text("Production portfolio", style = MaterialTheme.typography.titleMedium)
+            if (pending != null) {
+                OutlinedButton(onClick = {
+                    val current = pending ?: return@OutlinedButton
+                    val slot = ProductionSlot(java.util.UUID.randomUUID().toString(), current, save.stage, save.response, save.crafts)
+                    val parked = ProductionSlots(save.slots.movies + slot)
+                    val updated = save.copy(slots = parked, pending = null, stage = 0, response = null, crafts = emptyMap())
+                    if (store.write(updated)) { save = updated; pending = null; title = ""; error = "" } else error = "Save failed."
+                }) { Text("Park movie / start another") }
+            }
+            save.slots.movies.forEach { slot ->
+                OutlinedButton(onClick = {
+                    val current = pending
+                    val remaining = save.slots.movies.filterNot { it.id == slot.id }
+                    val parked = if (current == null) remaining else remaining + ProductionSlot(java.util.UUID.randomUUID().toString(), current, save.stage, save.response, save.crafts)
+                    val updated = save.copy(slots = ProductionSlots(parked), pending = slot.production, stage = slot.stage, response = slot.response, crafts = slot.crafts)
+                    if (store.write(updated)) { save = updated; pending = slot.production; error = "" } else error = "Save failed."
+                }) { Text("Resume ${slot.production.plan.title} • Stage ${slot.stage + 1}") }
+            }
+
         val p = pending
         if (p != null) {
             val stages = listOf("Pre-production","Principal photography","Post-production","Premiere")
@@ -374,7 +394,8 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             }
             market.rivals.forEach { release -> Text("Upcoming rival release: ${release.studio} • ${release.genre.name}") }
         }
-        if (tab == "Assets") {
+        if (tab == "Assets" && (pending != null || save.slots.movies.isNotEmpty())) { Text("Finish or cancel all productions before changing assets.") }
+        if (tab == "Assets" && pending == null && save.slots.movies.isEmpty()) {
         Text("Asset marketplace", style = MaterialTheme.typography.titleLarge)
         val year = 2026 + c.completed / 4
         val discovered = setOf("digital4k","largeformat","ledstage") + save.research +
@@ -412,7 +433,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             val qualified = c.completed >= v.technology.requiredFilms &&
                 achievements.containsAll(v.technology.requiredAchievements)
             Text(v.technology.name + " • Research ₹$cost lakh")
-            Button(enabled = pending == null && qualified && c.cash >= cost, onClick = {
+            Button(enabled = pending == null && save.slots.movies.isEmpty() && qualified && c.cash >= cost, onClick = {
                 val result = EmpireTechnologyRoadmap.discover(industry,v.technology.id,v.generation.crewTraining*100)
                 val updated = save.copy(career = c.copy(cash = c.cash-cost), research = save.research + (result.discovered-discovered))
                 if (store.write(updated)) { save = updated; error = "" } else error = "Save failed."
@@ -462,9 +483,9 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 Text(t.name)
                 Text("₹${t.price} lakh • ${available.size} available")
                 Text("Requires ${t.requiredFilms} films • ${t.requiredAchievements.joinToString().ifEmpty { "No extra achievement" }}")
-                Button(enabled = pending == null && eligible && c.cash >= t.price && available.isNotEmpty(),
+                Button(enabled = pending == null && save.slots.movies.isEmpty() && eligible && c.cash >= t.price && available.isNotEmpty(),
                     onClick = { transact { economy.buy(available.first().id,"player",t.price,eligibility,industry) } }) { Text("Purchase") }
-                Button(enabled = pending == null && eligible && c.cash >= t.price && available.isNotEmpty(), onClick = { auctionAsset = available.first(); bidText = t.price.toString() }) { Text("Enter auction") }
+                Button(enabled = pending == null && save.slots.movies.isEmpty() && eligible && c.cash >= t.price && available.isNotEmpty(), onClick = { auctionAsset = available.first(); bidText = t.price.toString() }) { Text("Enter auction") }
             } }
         }
         Text("Owned assets: ${save.owned.count { it.owner == "player" }}")
@@ -473,25 +494,26 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             if (a.renter != null) { Text("Booked by ${a.renter} until day ${a.bookedUntil}") }
             else if (a.debt == 0) {
                 val renter = c.rivals.filter { it.cash >= a.value/10+100 }.maxByOrNull { it.cash }
-                if (renter != null) Button(enabled = pending == null, onClick = {
+                if (renter != null) Button(enabled = pending == null && save.slots.movies.isEmpty(), onClick = {
                     transact { economy.rent(a.id,renter.name,c.completed*30,30,(a.value/10).coerceAtLeast(1)) }
                 }) { Text("Rent to ${renter.name} • ₹${(a.value/10).coerceAtLeast(1)} lakh") }
-                Button(enabled = pending == null && a.value >= 2, onClick = {
+                Button(enabled = pending == null && save.slots.movies.isEmpty() && a.value >= 2, onClick = {
                     transact { economy.mortgage(a.id,"player",a.value/2) }
                 }) { Text("Borrow ₹${a.value/2} lakh") }
-                Button(enabled = pending == null, onClick = {
+                Button(enabled = pending == null && save.slots.movies.isEmpty(), onClick = {
                     // Dealer buyback at a discount; returned stock is available for repurchase.
                     transact { economy.copy(assets = economy.assets.map { if (it.id == a.id) it.copy(owner = null) else it },
                         balances = economy.balances + ("player" to (c.cash + a.value*70/100))) }
                 }) { Text("Sell to dealer ₹${a.value*70/100} lakh") }
             } else {
-                Button(enabled = pending == null && c.cash >= a.debt, onClick = {
+                Button(enabled = pending == null && save.slots.movies.isEmpty() && c.cash >= a.debt, onClick = {
                     transact { economy.repay(a.id,"player",a.debt) }
                 }) { Text("Repay principal ₹${a.debt} lakh") }
             }
         }
         }
-        if (tab == "Career") {
+        if (tab == "Career" && (pending != null || save.slots.movies.isNotEmpty())) { Text("Finish or cancel all productions before changing studio finances or staff.") }
+        if (tab == "Career" && pending == null && save.slots.movies.isEmpty()) {
         Text("Department managers",style=MaterialTheme.typography.titleLarge)
         if(c.completed<5) Text("Managers unlock after five films.")
         else Department.values().forEach { department ->
@@ -531,7 +553,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             Talent.values().forEach { talent ->
                 val existing = save.contracts.firstOrNull { it.talent == talent.name && it.remainingFilms > 0 && it.expiresDay > c.completed*30 }
                 if (existing != null) Text("${talent.name}: ${existing.remainingFilms} films remaining")
-                else Button(enabled = pending == null && c.cash >= talent.fee/2, onClick = {
+                else Button(enabled = pending == null && save.slots.movies.isEmpty() && c.cash >= talent.fee/2, onClick = {
                     val agreement = TalentContract("contract-${c.completed}-${talent.name}",talent.name,"player",ContractType.MULTI_FILM,3,talent.fee*80/100,talent.fee/2,expiresDay=c.completed*30+360)
                     val ledger = ContractLedger(mapOf("player" to c.cash),save.contracts).sign(agreement,c.completed*30)
                     val updated = save.copy(career=c.copy(cash=ledger.cash.getValue("player")),contracts=ledger.contracts)
