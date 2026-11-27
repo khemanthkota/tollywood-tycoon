@@ -52,3 +52,19 @@ internal object ReleaseSeasonPlanner {
         return ReleaseMarketCalendar(holidays,rivals)
     }
 }
+
+internal data class ReleaseCampaign(val releaseDay: Int,val marketingLakh: Int = 0,val postponementLakh: Long = 0,val wastedMarketingLakh: Int = 0) {
+    init { require(releaseDay >= 0 && marketingLakh >= 0 && postponementLakh >= 0 && wastedMarketingLakh in 0..marketingLakh) }
+    fun postpone(newDay: Int, dailyHoldingLakh: Int, availableLakh: Long): ReleaseCampaign {
+        require(newDay > releaseDay && dailyHoldingLakh >= 0)
+        val holding = (newDay.toLong()-releaseDay)*dailyHoldingLakh
+        val wasted = (marketingLakh-wastedMarketingLakh)/5
+        require(holding <= availableLakh && holding <= Long.MAX_VALUE-postponementLakh)
+        return copy(releaseDay=newDay,postponementLakh=postponementLakh+holding,wastedMarketingLakh=wastedMarketingLakh+wasted)
+    }
+    fun promote(extraLakh: Int, availableLakh: Long): ReleaseCampaign {
+        require(extraLakh >= 0 && extraLakh <= availableLakh && extraLakh <= Int.MAX_VALUE-marketingLakh)
+        return copy(marketingLakh=marketingLakh+extraLakh)
+    }
+    val demandBoost: Double get() = 1.0 + .35*(1.0-kotlin.math.exp(-(marketingLakh-wastedMarketingLakh)/100.0))
+}
