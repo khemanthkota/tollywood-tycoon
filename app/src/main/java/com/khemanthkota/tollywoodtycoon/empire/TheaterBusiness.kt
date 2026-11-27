@@ -66,3 +66,13 @@ internal data class ExhibitionCalendar(val contracts: List<ScreeningContract> = 
         return copy(settledThrough=day) to earnings
     }
 }
+
+internal object TheaterDemand {
+    fun occupancy(popularity: Int, regionalAppeal: Double, ticketPrice: Double, referencePrice: Double, competingReleases: Int, daysSinceRelease: Int): Double {
+        require(popularity in 0..100 && regionalAppeal in 0.0..2.0 && ticketPrice.isFinite() && ticketPrice >= 0 && referencePrice.isFinite() && referencePrice > 0 && competingReleases >= 0 && daysSinceRelease >= 0)
+        val priceFactor = (referencePrice / maxOf(ticketPrice, referencePrice * .5)).coerceIn(.2,1.4)
+        val competition = 1.0 / (1.0 + competingReleases * .15)
+        val decay = 1.0 / (1.0 + daysSinceRelease * .045)
+        return ((.05 + popularity / 100.0 * .95) * regionalAppeal * priceFactor * competition * decay).coerceIn(0.0,1.0)
+    }
+}
