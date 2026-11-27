@@ -6,6 +6,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.ui.graphics.Color
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -106,14 +111,33 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         if (pending != null) TextButton(onClick = { tab = "Produce" }) { Text("Production alert • action required") }
         if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
         resultPopup?.let { film ->
+            val animatedGross by animateIntAsState(targetValue = film.gross, animationSpec = tween(1200))
             AlertDialog(onDismissRequest = { resultPopup = null }, title = { Text("Premiere • ${film.title}") },
-                text = { Text("Box office ₹${film.gross} lakh\nProfit/loss ₹${film.profit} lakh\nQuality ${film.quality}/100") },
+                text = { Text("Box office ₹${animatedGross} lakh\nProfit/loss ₹${film.profit} lakh\nQuality ${film.quality}/100") },
                 confirmButton = { Button(onClick = { resultPopup = null }) { Text("Continue") } })
         }
         key(tab) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (tab == "Studio") {
         Text("Studio command center", style = MaterialTheme.typography.headlineSmall)
+        Card(Modifier.fillMaxWidth()) {
+            Canvas(Modifier.fillMaxWidth().height(130.dp)) {
+                val w = size.width
+                val h = size.height
+                drawRect(Color(0xFF101522))
+                for (i in 0..7) {
+                    val x = w*i/8
+                    drawLine(Color(0xFF29405A), Offset(x,0f), Offset(w/2+(x-w/2)*1.8f,h), 2f)
+                }
+                drawRect(Color(0xFF263A50), Offset(w*.22f,h*.15f), Size(w*.56f,h*.58f))
+                drawRect(Color(0xFF75D9E8), Offset(w*.25f,h*.19f), Size(w*.5f,h*.45f))
+                drawRect(Color(0xFF101522), Offset(w*.28f,h*.22f), Size(w*.44f,h*.39f))
+                drawCircle(Color(0xFFFFD080), h*.07f, Offset(w*.5f,h*.41f))
+                drawLine(Color(0xFFFFD080),Offset(w*.1f,h*.1f),Offset(w*.35f,h*.65f),4f)
+                drawLine(Color(0xFFFFD080),Offset(w*.9f,h*.1f),Offset(w*.65f,h*.65f),4f)
+            }
+            Text("STAGE 01  •  STUDIO OPERATIONS", Modifier.padding(12.dp), color = MaterialTheme.colorScheme.secondary)
+        }
         Button(onClick = { tab = "Produce" }, modifier = Modifier.fillMaxWidth()) { Text("Start / resume production") }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { tab = "Assets" }) { Text("Equipment") }
@@ -262,16 +286,16 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             Card { Column(Modifier.fillMaxWidth().padding(12.dp)) {
                 Text("${g.name} • ${level.name} • +${level.trust}% demand")
                 Text(Mastery.values().filter { it.hits > 0 }.joinToString(" → ") { m -> (if (hits >= m.hits) "✓ " else "") + m.hits + " hits" })
+                LinearProgressIndicator(progress = (hits / (next?.hits ?: 15).toFloat()).coerceIn(0f,1f), modifier = Modifier.fillMaxWidth())
                 Text(if (next == null) "Mastery complete" else "$hits / ${next.hits} hits toward ${next.name}")
             } }
         }
         Text("Studio history", style = MaterialTheme.typography.titleLarge)
         save.history.asReversed().forEach { Text("${it.title} • ₹${it.profit} lakh profit/loss") }
+        }
+        }
+        }
+    }
     }
 }
-    }
-    }
-    }
-    }
-    }
 }
