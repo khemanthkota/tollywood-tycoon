@@ -1,0 +1,70 @@
+package com.khemanthkota.tollywoodtycoon.empire
+
+import android.media.AudioAttributes
+import android.media.AudioFormat
+import android.media.AudioTrack
+import kotlin.math.PI
+import kotlin.math.sin
+
+// Original procedural audio; no external recordings or network dependency.
+class EmpireAudio {
+    private var music: AudioTrack? = null
+    private var effect: AudioTrack? = null
+    private var currentScene: String? = null
+    var musicVolume = .25f
+        set(value) { field = value.coerceIn(0f,1f); music?.setVolume(field) }
+    var effectsVolume = .45f
+        set(value) { field = value.coerceIn(0f,1f); effect?.setVolume(field) }
+    private fun track(samples: ShortArray, volume: Float): AudioTrack {
+        val t = AudioTrack.Builder()
+            .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
+            .setAudioFormat(AudioFormat.Builder().setSampleRate(22050)
+                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
+            .setTransferMode(AudioTrack.MODE_STATIC).setBufferSizeInBytes(samples.size*2).build()
+        try {
+            check(t.write(samples,0,samples.size) == samples.size)
+            t.setVolume(volume)
+            return t
+        } catch (e: Exception) { t.release(); throw e }
+    }
+    fun scene(name: String) {
+        if (currentScene == name && music != null) return
+        music?.release(); music = null; currentScene = name
+        val roots = when(name) {
+            "Produce" -> intArrayOf(48,53,55,50)
+            "Market" -> intArrayOf(45,48,50,43)
+            "Assets" -> intArrayOf(50,53,57,48)
+            else -> intArrayOf(48,55,53,50)
+        }
+        val rate = 22050
+        val bar = rate*2
+        val samples = ShortArray(bar*roots.size) { i ->
+            val local = i%bar
+            val time = local.toDouble()/rate
+            val root = roots[i/bar]
+            val envelope = minOf(1.0,local/2200.0,(bar-local)/4400.0)
+            val chord = intArrayOf(0,3,7,12).sumOf { step ->
+                val f = 440.0*Math.pow(2.0,(root+step-69)/12.0)
+                sin(2*PI*f*time)*.08 + sin(4*PI*f*time)*.015
+            }
+            (chord*envelope*22000).toInt().toShort()
+        }
+        runCatching { music = track(samples,musicVolume).also { it.setLoopPoints(0,samples.size,-1); it.play() } }
+    }
+    fun cue(success: Boolean = false) {
+        effect?.release(); effect = null
+        val count = if(success) 11025 else 2205
+        val samples = ShortArray(count) { i ->
+            val time = i/22050.0
+            val f = if(success) doubleArrayOf(392.0,523.25,659.25)[(i*3/count).coerceAtMost(2)] else 720.0
+            val envelope = minOf(1.0,i/150.0)*(1.0-i.toDouble()/count)
+            (sin(2*PI*f*time)*envelope*10000).toInt().toShort()
+        }
+        runCatching { effect = track(samples,effectsVolume).also { it.play() } }
+    }
+    fun pause() { runCatching { music?.pause(); effect?.pause() } }
+    fun resume() { runCatching { music?.play() } }
+    fun release() { music?.release(); effect?.release(); music=null; effect=null; currentScene=null }
+}
