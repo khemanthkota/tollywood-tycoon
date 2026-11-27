@@ -12,7 +12,7 @@ import androidx.compose.ui.unit.dp
 import org.json.JSONObject
 import org.json.JSONArray
 
-private data class Save(val career: Career = Career(seed = kotlin.random.Random.nextInt()), val history: List<FilmResult> = emptyList(), val pending: Production? = null, val owned: List<StudioAsset> = emptyList())
+private data class Save(val career: Career = Career(seed = kotlin.random.Random.nextInt()), val history: List<FilmResult> = emptyList(), val pending: Production? = null, val owned: List<StudioAsset> = emptyList(), val research: Set<String> = emptySet())
 private class CareerStore(context: Context) {
     private val prefs = context.getSharedPreferences("cinema_empire_v1", Context.MODE_PRIVATE)
     fun load(): Save {
@@ -33,7 +33,7 @@ private class CareerStore(context: Context) {
         val pending = j.optJSONObject("pending")?.let { p ->
             Production(FilmPlan(p.getString("title"), Genre.valueOf(p.getString("genre")), Talent.valueOf(p.getString("cast")), Director.valueOf(p.getString("director")), p.getInt("budget")), p.getBoolean("event"), p.getInt("seed"))
         }
-        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals, Genre.values().associateWith { g -> j.optJSONObject("genreHits")?.optInt(g.name, 0) ?: 0 }), history, pending, j.optJSONArray("owned")?.let { arr -> (0 until arr.length()).map { i -> val x = arr.getJSONObject(i); StudioAsset(x.getString("id"), x.getString("technology"), "player", x.getInt("value"), x.optInt("debt",0)) } } ?: emptyList())
+        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals, Genre.values().associateWith { g -> j.optJSONObject("genreHits")?.optInt(g.name, 0) ?: 0 }), history, pending, j.optJSONArray("owned")?.let { arr -> (0 until arr.length()).map { i -> val x = arr.getJSONObject(i); StudioAsset(x.getString("id"), x.getString("technology"), "player", x.getInt("value"), x.optInt("debt",0)) } } ?: emptyList(), j.optJSONArray("research")?.let { arr -> (0 until arr.length()).map { arr.getString(it) }.toSet() } ?: emptySet())
     }
     fun write(s: Save): Boolean {
         val c = s.career
@@ -49,7 +49,7 @@ private class CareerStore(context: Context) {
             .put("event", p.event).put("seed", p.seed) }
         val owned = JSONArray()
         s.owned.forEach { x -> owned.put(JSONObject().put("id",x.id).put("technology",x.technologyId).put("value",x.value).put("debt",x.debt)) }
-        return prefs.edit().putString("career", JSONObject().put("owned",owned).put("genreHits", JSONObject().apply { c.genreHits.forEach { (g, hits) -> put(g.name, hits) } }).put("pending", pending ?: JSONObject.NULL).put("rivals", rivals).put("version", 1).put("cash", c.cash)
+        return prefs.edit().putString("career", JSONObject().put("research",JSONArray(s.research.toList())).put("owned",owned).put("genreHits", JSONObject().apply { c.genreHits.forEach { (g, hits) -> put(g.name, hits) } }).put("pending", pending ?: JSONObject.NULL).put("rivals", rivals).put("version", 1).put("cash", c.cash)
             .put("completed", c.completed).put("credibility", c.credibility).put("audience", c.audience)
             .put("seed", c.seed).put("history", a).toString()).commit()
     }
@@ -143,9 +143,8 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
         Text("Asset marketplace", style = MaterialTheme.typography.titleLarge)
         val year = 2026 + c.completed / 4
-        // Temporary calendar-based discovery for the prototype; research UI is not yet connected.
-        val discovered = setOf("digital4k","largeformat","ledstage") +
-            EmpireTechnologyRoadmap.variants.filter { it.technology.earliestYear <= year }.map { it.technology.id }
+        val discovered = setOf("digital4k","largeformat","ledstage") + save.research +
+            EmpireTechnologyRoadmap.variants.filter { it.generation.year == 2026 }.map { it.technology.id }
         val industry = IndustryTechnology(year, discovered)
         Text("Industry year: $year")
         var category by remember { mutableStateOf("camera") }
@@ -168,6 +167,22 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     owned = result.assets.filter { it.owner == "player" })
                 if (store.write(updated)) { save = updated; error = "" } else error = "Save failed."
             } catch (e: Exception) { error = e.message ?: "Asset transaction failed." }
+        }
+        Text("Research and development")
+        val candidates = EmpireTechnologyRoadmap.variants.filter { v ->
+            v.category == category && v.technology.id !in discovered &&
+                v.technology.earliestYear <= year && discovered.containsAll(v.technology.prerequisites)
+        }
+        candidates.take(5).forEach { v ->
+            val cost = v.generation.crewTraining * 20
+            val qualified = c.completed >= v.technology.requiredFilms &&
+                achievements.containsAll(v.technology.requiredAchievements)
+            Text(v.technology.name + " • Research ₹$cost lakh")
+            Button(enabled = pending == null && qualified && c.cash >= cost, onClick = {
+                val result = EmpireTechnologyRoadmap.discover(industry,v.technology.id,v.generation.crewTraining*100)
+                val updated = save.copy(career = c.copy(cash = c.cash-cost), research = save.research + (result.discovered-discovered))
+                if (store.write(updated)) { save = updated; error = "" } else error = "Save failed."
+            }) { Text("Develop technology") }
         }
         val listings = EmpireAssetCatalog.technologies.filter { it.id in industry.discovered } +
             EmpireTechnologyRoadmap.variants.filter { it.category == category && it.technology.id in discovered }.map { it.technology }
