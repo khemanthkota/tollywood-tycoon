@@ -33,7 +33,7 @@ private class CareerStore(context: Context) {
         val pending = j.optJSONObject("pending")?.let { p ->
             Production(FilmPlan(p.getString("title"), Genre.valueOf(p.getString("genre")), Talent.valueOf(p.getString("cast")), Director.valueOf(p.getString("director")), p.getInt("budget")), p.getBoolean("event"), p.getInt("seed"))
         }
-        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals), history, pending)
+        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals, Genre.values().associateWith { g -> j.optJSONObject("genreHits")?.optInt(g.name, 0) ?: 0 }), history, pending)
     }
     fun write(s: Save): Boolean {
         val c = s.career
@@ -47,7 +47,7 @@ private class CareerStore(context: Context) {
         val pending = s.pending?.let { p -> JSONObject().put("title", p.plan.title).put("genre", p.plan.genre.name)
             .put("cast", p.plan.cast.name).put("director", p.plan.director.name).put("budget", p.plan.budget)
             .put("event", p.event).put("seed", p.seed) }
-        return prefs.edit().putString("career", JSONObject().put("pending", pending ?: JSONObject.NULL).put("rivals", rivals).put("version", 1).put("cash", c.cash)
+        return prefs.edit().putString("career", JSONObject().put("genreHits", JSONObject().apply { c.genreHits.forEach { (g, hits) -> put(g.name, hits) } }).put("pending", pending ?: JSONObject.NULL).put("rivals", rivals).put("version", 1).put("cash", c.cash)
             .put("completed", c.completed).put("credibility", c.credibility).put("audience", c.audience)
             .put("seed", c.seed).put("history", a).toString()).commit()
     }
@@ -138,6 +138,18 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 Text("${s.name} • ₹${s.cash} lakh • ${s.preferredGenre.name}")
             }
             market.rivals.forEach { release -> Text("Upcoming rival release: ${release.studio} • ${release.genre.name}") }
+        }
+        Text("Career mastery tree", style = MaterialTheme.typography.titleLarge)
+        Text("Build trust in any genre. Hits require quality 60+ and at least 20% profit on cost.")
+        Genre.values().forEach { g ->
+            val hits = c.genreHits[g] ?: 0
+            val level = EmpireMastery.level(hits)
+            val next = EmpireMastery.next(hits)
+            Card { Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                Text("${g.name} • ${level.name} • +${level.trust}% demand")
+                Text(Mastery.values().filter { it.hits > 0 }.joinToString(" → ") { m -> (if (hits >= m.hits) "✓ " else "") + m.hits + " hits" })
+                Text(if (next == null) "Mastery complete" else "$hits / ${next.hits} hits toward ${next.name}")
+            } }
         }
         Text("Studio history", style = MaterialTheme.typography.titleLarge)
         save.history.asReversed().forEach { Text("${it.title} • ₹${it.profit} lakh profit/loss") }
