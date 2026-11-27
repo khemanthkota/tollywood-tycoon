@@ -33,7 +33,7 @@ private class CareerStore(context: Context) {
         val pending = j.optJSONObject("pending")?.let { p ->
             Production(FilmPlan(p.getString("title"), Genre.valueOf(p.getString("genre")), Talent.valueOf(p.getString("cast")), Director.valueOf(p.getString("director")), p.getInt("budget")), p.getBoolean("event"), p.getInt("seed"))
         }
-        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals, Genre.values().associateWith { g -> j.optJSONObject("genreHits")?.optInt(g.name, 0) ?: 0 }), history, pending, j.optJSONArray("owned")?.let { arr -> (0 until arr.length()).map { i -> val x = arr.getJSONObject(i); StudioAsset(x.getString("id"), x.getString("technology"), "player", x.getInt("value")) } } ?: emptyList())
+        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals, Genre.values().associateWith { g -> j.optJSONObject("genreHits")?.optInt(g.name, 0) ?: 0 }), history, pending, j.optJSONArray("owned")?.let { arr -> (0 until arr.length()).map { i -> val x = arr.getJSONObject(i); StudioAsset(x.getString("id"), x.getString("technology"), "player", x.getInt("value"), x.optInt("debt",0)) } } ?: emptyList())
     }
     fun write(s: Save): Boolean {
         val c = s.career
@@ -48,7 +48,7 @@ private class CareerStore(context: Context) {
             .put("cast", p.plan.cast.name).put("director", p.plan.director.name).put("budget", p.plan.budget)
             .put("event", p.event).put("seed", p.seed) }
         val owned = JSONArray()
-        s.owned.forEach { x -> owned.put(JSONObject().put("id",x.id).put("technology",x.technologyId).put("value",x.value)) }
+        s.owned.forEach { x -> owned.put(JSONObject().put("id",x.id).put("technology",x.technologyId).put("value",x.value).put("debt",x.debt)) }
         return prefs.edit().putString("career", JSONObject().put("owned",owned).put("genreHits", JSONObject().apply { c.genreHits.forEach { (g, hits) -> put(g.name, hits) } }).put("pending", pending ?: JSONObject.NULL).put("rivals", rivals).put("version", 1).put("cash", c.cash)
             .put("completed", c.completed).put("credibility", c.credibility).put("audience", c.audience)
             .put("seed", c.seed).put("history", a).toString()).commit()
@@ -142,7 +142,18 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             market.rivals.forEach { release -> Text("Upcoming rival release: ${release.studio} • ${release.genre.name}") }
         }
         Text("Asset marketplace", style = MaterialTheme.typography.titleLarge)
-        val industry = IndustryTechnology(2026, setOf("digital4k","largeformat","ledstage"))
+        val year = 2026 + c.completed / 4
+        // Temporary calendar-based discovery for the prototype; research UI is not yet connected.
+        val discovered = setOf("digital4k","largeformat","ledstage") +
+            EmpireTechnologyRoadmap.variants.filter { it.technology.earliestYear <= year }.map { it.technology.id }
+        val industry = IndustryTechnology(year, discovered)
+        Text("Industry year: $year")
+        var category by remember { mutableStateOf("camera") }
+        var page by remember(category) { mutableStateOf(0) }
+        Text("Browse asset categories")
+        EmpireTechnologyRoadmap.families.forEach { f ->
+            FilterChip(category == f.id, { category = f.id }, { Text(f.id) })
+        }
         val achievements = buildSet {
             if (c.completed >= 8 && save.history.count { it.quality >= 75 } >= 3) add("cinematography")
             if (c.completed >= 10 && save.history.count { it.quality >= 80 } >= 3) add("technical")
@@ -158,7 +169,13 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 if (store.write(updated)) { save = updated; error = "" } else error = "Save failed."
             } catch (e: Exception) { error = e.message ?: "Asset transaction failed." }
         }
-        EmpireAssetCatalog.technologies.filter { it.id in industry.discovered }.forEach { t ->
+        val listings = EmpireAssetCatalog.technologies.filter { it.id in industry.discovered } +
+            EmpireTechnologyRoadmap.variants.filter { it.category == category && it.technology.id in discovered }.map { it.technology }
+        Row {
+            TextButton(enabled = page > 0, onClick = { page-- }) { Text("Previous") }
+            TextButton(enabled = (page+1)*10 < listings.size, onClick = { page++ }) { Text("Next") }
+        }
+        listings.drop(page*10).take(10).forEach { t ->
             val available = inventory.filter { it.technologyId == t.id && it.owner == null }
             val eligible = AssetEconomy.eligible(t,eligibility,industry)
             Card { Column(Modifier.fillMaxWidth().padding(12.dp)) {
@@ -171,7 +188,21 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
         Text("Owned assets: ${save.owned.size}")
         save.owned.forEach { a ->
-            Text(EmpireAssetCatalog.allTechnologies.first { it.id == a.technologyId }.name + " • ₹${a.value} lakh")
+            Text(EmpireAssetCatalog.allTechnologies.first { it.id == a.technologyId }.name + " • ₹${a.value} lakh • Debt ₹${a.debt} lakh")
+            if (a.debt == 0) {
+                Button(enabled = pending == null && a.value >= 2, onClick = {
+                    transact { economy.mortgage(a.id,"player",a.value/2) }
+                }) { Text("Borrow ₹${a.value/2} lakh") }
+                Button(enabled = pending == null, onClick = {
+                    // Dealer buyback at a discount; returned stock is available for repurchase.
+                    transact { economy.copy(assets = economy.assets.map { if (it.id == a.id) it.copy(owner = null) else it },
+                        balances = economy.balances + ("player" to (c.cash + a.value*70/100))) }
+                }) { Text("Sell to dealer ₹${a.value*70/100} lakh") }
+            } else {
+                Button(enabled = pending == null && c.cash >= a.debt, onClick = {
+                    transact { economy.repay(a.id,"player",a.debt) }
+                }) { Text("Repay principal ₹${a.debt} lakh") }
+            }
         }
         Text("Career mastery tree", style = MaterialTheme.typography.titleLarge)
         Text("Build trust in any genre. Hits require quality 60+ and at least 20% profit on cost.")
