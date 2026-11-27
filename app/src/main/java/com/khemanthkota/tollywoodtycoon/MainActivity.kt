@@ -57,7 +57,19 @@ class MainActivity : ComponentActivity() {
         setContent {
             TollywoodTycoonTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { padding ->
-                    TriviaGame(Modifier.padding(padding))
+                    var mode by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("home") }
+                    when (mode) {
+                        "empire" -> com.khemanthkota.tollywoodtycoon.empire.EmpireScreen({ mode = "home" }, Modifier.padding(padding))
+                        "trivia" -> {
+                            androidx.activity.compose.BackHandler { mode = "home" }
+                            TriviaGame(Modifier.padding(padding))
+                        }
+                        else -> Column(Modifier.padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Text("Cinema Tycoon", style = MaterialTheme.typography.headlineMedium)
+                            Button(onClick = { mode = "empire" }) { Text("Cinema Empire – Producer's Life") }
+                            Button(onClick = { mode = "trivia" }) { Text("Trivia") }
+                        }
+                    }
                 }
             }
         }
