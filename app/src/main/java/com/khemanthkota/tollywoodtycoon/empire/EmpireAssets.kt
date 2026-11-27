@@ -21,7 +21,7 @@ data class AssetEconomy(val assets: List<StudioAsset>, val balances: Map<String,
     fun buy(id: String, buyer: String, price: Int, eligibility: AssetEligibility,
             industry: IndustryTechnology): AssetEconomy {
         val a = assets.single { it.id == id }
-        val t = EmpireAssetCatalog.technologies.single { it.id == a.technologyId }
+        val t = EmpireAssetCatalog.allTechnologies.single { it.id == a.technologyId }
         require(a.owner != buyer && a.debt == 0 && a.renter == null && !a.auction)
         require(price > 0 && balance(buyer) >= price && eligible(t, eligibility, industry))
         val money = balances.toMutableMap()
@@ -36,6 +36,31 @@ data class AssetEconomy(val assets: List<StudioAsset>, val balances: Map<String,
         require(balance(renter) >= fee)
         return replace(a.copy(renter = renter, bookedUntil = day + days),
             balances + (renter to balance(renter)-fee) + (owner to balance(owner)+fee))
+    }
+    // Add newly discovered inventory once, preserving all existing ownership and debt.
+    fun refreshSupply(industry: IndustryTechnology): AssetEconomy {
+        val existing = assets.map { it.id }.toSet()
+        return copy(assets = assets + EmpireAssetCatalog.initialAssets(industry).filter { it.id !in existing })
+    }
+    // Annual maintenance is an explicit cash obligation; unpaid bills are returned
+    // to the caller for financial resolution rather than silently creating money.
+    data class AnnualCosts(val economy: AssetEconomy, val unpaid: Map<String, Int>)
+    fun annualUpdate(): AnnualCosts {
+        val money = balances.toMutableMap()
+        val unpaid = mutableMapOf<String, Int>()
+        val catalog = EmpireAssetCatalog.allTechnologies.associateBy { it.id }
+        val updated = assets.map { a ->
+            val t = catalog.getValue(a.technologyId)
+            val owner = a.owner
+            if (owner != null) {
+                val bill = (a.value * t.maintenancePercent / 100).coerceAtLeast(1)
+                val paid = minOf(bill, (money[owner] ?: 0).coerceAtLeast(0))
+                money[owner] = (money[owner] ?: 0) - paid
+                if (paid < bill) unpaid[owner] = (unpaid[owner] ?: 0) + bill - paid
+                a.copy(value = (a.value * (100-t.annualDepreciationPercent)/100).coerceAtLeast(1))
+            } else a
+        }
+        return AnnualCosts(copy(assets = updated, balances = money), unpaid)
     }
     fun releaseBookings(day: Int) = copy(assets = assets.map {
         if (it.bookedUntil <= day) it.copy(renter = null) else it
@@ -60,7 +85,7 @@ data class AssetEconomy(val assets: List<StudioAsset>, val balances: Map<String,
     fun settleAuction(id: String, buyer: String, bid: Int, eligibility: AssetEligibility,
                       industry: IndustryTechnology): AssetEconomy {
         val a = assets.single { it.id == id }
-        val t = EmpireAssetCatalog.technologies.single { it.id == a.technologyId }
+        val t = EmpireAssetCatalog.allTechnologies.single { it.id == a.technologyId }
         require(a.auction && buyer != a.owner && bid >= a.debt && balance(buyer) >= bid)
         require(eligible(t, eligibility, industry))
         val money = balances.toMutableMap()
@@ -87,7 +112,8 @@ object EmpireAssetCatalog {
         AssetTechnology("haptic","Multisensory theatre",2080,2500,2,25,setOf("distribution"),setOf("lightfield")),
         AssetTechnology("orbital","Orbital filming facility access",2100,5000,2,30,setOf("technical","international"),setOf("robotcamera"))
     )
-    fun initialAssets(industry: IndustryTechnology) = technologies.filter {
+    val allTechnologies: List<AssetTechnology> by lazy { technologies + EmpireTechnologyRoadmap.variants.map { it.technology } }
+    fun initialAssets(industry: IndustryTechnology) = allTechnologies.filter {
         industry.year >= it.earliestYear && it.id in industry.discovered &&
             industry.discovered.containsAll(it.prerequisites)
     }.flatMap { t -> (1..t.supply).map { n -> StudioAsset("${t.id}-$n",t.id,null,t.price) } }
