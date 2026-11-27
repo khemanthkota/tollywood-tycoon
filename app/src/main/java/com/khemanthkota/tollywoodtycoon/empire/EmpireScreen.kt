@@ -38,7 +38,7 @@ private class CareerStore(context: Context) {
             }
         } ?: EmpireMarket.initialRivals
         val pending = j.optJSONObject("pending")?.let { p ->
-            Production(FilmPlan(p.getString("title"), Genre.valueOf(p.getString("genre")), Talent.valueOf(p.getString("cast")), Director.valueOf(p.getString("director")), p.getInt("budget")), p.getBoolean("event"), p.getInt("seed"))
+            Production(FilmPlan(p.getString("title"), Genre.valueOf(p.getString("genre")), Talent.valueOf(p.getString("cast")), Director.valueOf(p.getString("director")), p.getInt("budget"), p.optString("primary").takeIf { it.isNotEmpty() }?.let { HybridFilm(StoryGenre.valueOf(it),p.optString("secondary").takeIf { it.isNotEmpty() }?.let { g -> StoryGenre.valueOf(g) },scale = ProductionScale.valueOf(p.optString("scale","INDEPENDENT"))) }), p.getBoolean("event"), p.getInt("seed"), p.optInt("potential",-1).takeIf { it >= 0 }?.let { CapabilityAssessment(emptyMap(),emptyMap(),it,0,0,false) })
         }
         return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals, Genre.values().associateWith { g -> j.optJSONObject("genreHits")?.optInt(g.name, 0) ?: 0 }), history, pending, j.optJSONArray("owned")?.let { arr -> (0 until arr.length()).map { i -> val x = arr.getJSONObject(i); StudioAsset(x.getString("id"), x.getString("technology"), x.optString("owner","player"), x.getInt("value"), x.optInt("debt",0), x.optString("renter","").takeIf { it.isNotEmpty() }, x.optInt("bookedUntil",0), x.optBoolean("auction",false)) } } ?: emptyList(), j.optJSONArray("research")?.let { arr -> (0 until arr.length()).map { arr.getString(it) }.toSet() } ?: emptySet(), j.optInt("stage",0), j.optString("response","").takeIf { it.isNotEmpty() }?.let { Response.valueOf(it) }, FilmCraft.values().mapNotNull { craft -> j.optJSONObject("crafts")?.optString(craft.name)?.takeIf { it.isNotEmpty() }?.let { craft to CraftInvestment.valueOf(it) } }.toMap())
     }
@@ -53,7 +53,7 @@ private class CareerStore(context: Context) {
         c.rivals.forEach { s -> rivals.put(JSONObject().put("name", s.name).put("cash", s.cash).put("genre", s.preferredGenre.name).put("ambition", s.ambition)) }
         val pending = s.pending?.let { p -> JSONObject().put("title", p.plan.title).put("genre", p.plan.genre.name)
             .put("cast", p.plan.cast.name).put("director", p.plan.director.name).put("budget", p.plan.budget)
-            .put("event", p.event).put("seed", p.seed) }
+            .put("event", p.event).put("seed", p.seed).put("primary",p.plan.hybrid?.primary?.name ?: "").put("secondary",p.plan.hybrid?.secondary?.name ?: "").put("scale",p.plan.hybrid?.scale?.name ?: "INDEPENDENT").put("potential",p.capability?.qualityPotential ?: -1) }
         val owned = JSONArray()
         s.owned.forEach { x -> owned.put(JSONObject().put("id",x.id).put("technology",x.technologyId).put("value",x.value).put("debt",x.debt).put("owner",x.owner).put("renter",x.renter ?: "").put("bookedUntil",x.bookedUntil).put("auction",x.auction)) }
         return prefs.edit().putString("career", JSONObject().put("crafts",JSONObject().apply { s.crafts.forEach { (k,v) -> put(k.name,v.name) } }).put("stage",s.stage).put("response",s.response?.name ?: "").put("research",JSONArray(s.research.toList())).put("owned",owned).put("genreHits", JSONObject().apply { c.genreHits.forEach { (g, hits) -> put(g.name, hits) } }).put("pending", pending ?: JSONObject.NULL).put("rivals", rivals).put("version", 1).put("cash", c.cash)
@@ -95,6 +95,9 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var save by remember { mutableStateOf(loaded.getOrNull() ?: Save()) }
     var title by remember { mutableStateOf("") }
     var genre by remember { mutableStateOf(Genre.ACTION) }
+    var secondary by remember { mutableStateOf<StoryGenre?>(null) }
+    var scale by remember { mutableStateOf(ProductionScale.INDEPENDENT) }
+    var genrePopup by remember { mutableStateOf(false) }
     var cast by remember { mutableStateOf(Talent.NEWCOMER) }
     var director by remember { mutableStateOf(Director.DEBUT) }
     var budget by remember { mutableStateOf("200") }
@@ -255,6 +258,19 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             OutlinedTextField(title, { title = it }, label = { Text("Movie title") }, singleLine = true)
             Text("Genre")
             Genre.values().forEach { g -> FilterChip(genre == g, { genre = g }, { Text(g.name) }) }
+            if (c.completed >= 3) {
+                TextButton(onClick = { genrePopup = true }) { Text("Secondary genre: ${secondary?.name ?: "None"}") }
+                if (genrePopup) AlertDialog(onDismissRequest = { genrePopup = false }, title = { Text("Blend genres") },
+                    text = { Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
+                        TextButton(onClick = { secondary = null; genrePopup = false }) { Text("None") }
+                        StoryGenre.values().filter { it.name != genre.name }.forEach { g ->
+                            TextButton(onClick = { secondary = g; genrePopup = false }) { Text(g.name) }
+                        }
+                    } }, confirmButton = { TextButton(onClick = { genrePopup = false }) { Text("Close") } })
+                Row(Modifier.horizontalScroll(rememberScrollState())) {
+                    ProductionScale.values().forEach { s -> FilterChip(scale == s,{ scale = s },{ Text(s.name) }) }
+                }
+            }
             Text("Lead cast")
             Talent.values().forEach { t -> FilterChip(cast == t, { cast = t }, { Text("${t.name} • ₹${t.fee} lakh") }) }
             Text("Director")
@@ -265,7 +281,11 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             Button(enabled = title.isNotBlank() && (budget.toIntOrNull() ?: 0) in minimum..c.cash,
                 onClick = {
                     audio.event("clapper")
-                    val production = EmpireEngine.start(c, FilmPlan(title.trim(), genre, cast, director, budget.toInt()))
+                    val primary = StoryGenre.valueOf(genre.name)
+                    val hybrid = if (c.completed >= 3) HybridFilm(primary,secondary?.takeIf { it != primary },scale = scale) else null
+                    val hired = hybrid?.genres?.flatMap { it.needs }?.associateWith { 1 } ?: emptyMap()
+                    val production = EmpireEngine.start(c, FilmPlan(title.trim(), genre, cast, director, budget.toInt(),hybrid),
+                        AssetEconomy(save.owned,mapOf("player" to c.cash)),startDay = c.completed*30,endDay = c.completed*30+30,hiredCapabilities = hired)
                     val updated = save.copy(pending = production, stage = 0, response = null, crafts = emptyMap())
                     if (store.write(updated)) { save = updated; pending = production } else error = "Save failed."
                 }) { Text("Greenlight movie") }
