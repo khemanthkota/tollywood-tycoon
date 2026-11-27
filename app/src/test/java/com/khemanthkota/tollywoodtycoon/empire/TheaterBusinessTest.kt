@@ -17,4 +17,12 @@ class TheaterBusinessTest {
     @Test fun emptyTheaterStillCostsMoney() {
         assertEquals(-1.0,TheaterBusiness.screen(theater,booking.copy(occupancy=0.0)).theaterProfit,0.0001)
     }
+
+    @Test fun occupancyRespondsToMarketConditions() {
+        val baseline = TheaterDemand.occupancy(80,1.0,200.0,200.0,0,0)
+        assertTrue(TheaterDemand.occupancy(80,1.0,400.0,200.0,0,0) < baseline)
+        assertTrue(TheaterDemand.occupancy(80,1.0,200.0,200.0,3,0) < baseline)
+        assertTrue(TheaterDemand.occupancy(80,1.0,200.0,200.0,0,20) < baseline)
+        assertTrue(TheaterDemand.occupancy(100,2.0,100.0,200.0,0,0) <= 1.0)
+    }
 }
