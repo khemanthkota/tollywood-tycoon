@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.dp
 import org.json.JSONObject
 import org.json.JSONArray
 
-private data class Save(val career: Career = Career(seed = kotlin.random.Random.nextInt()), val history: List<FilmResult> = emptyList(), val pending: Production? = null, val owned: List<StudioAsset> = emptyList(), val research: Set<String> = emptySet(), val stage: Int = 0, val response: Response? = null)
+private data class Save(val career: Career = Career(seed = kotlin.random.Random.nextInt()), val history: List<FilmResult> = emptyList(), val pending: Production? = null, val owned: List<StudioAsset> = emptyList(), val research: Set<String> = emptySet(), val stage: Int = 0, val response: Response? = null, val crafts: Map<FilmCraft,CraftInvestment> = emptyMap())
 private class CareerStore(context: Context) {
     private val prefs = context.getSharedPreferences("cinema_empire_v1", Context.MODE_PRIVATE)
     fun load(): Save {
@@ -40,7 +40,7 @@ private class CareerStore(context: Context) {
         val pending = j.optJSONObject("pending")?.let { p ->
             Production(FilmPlan(p.getString("title"), Genre.valueOf(p.getString("genre")), Talent.valueOf(p.getString("cast")), Director.valueOf(p.getString("director")), p.getInt("budget")), p.getBoolean("event"), p.getInt("seed"))
         }
-        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals, Genre.values().associateWith { g -> j.optJSONObject("genreHits")?.optInt(g.name, 0) ?: 0 }), history, pending, j.optJSONArray("owned")?.let { arr -> (0 until arr.length()).map { i -> val x = arr.getJSONObject(i); StudioAsset(x.getString("id"), x.getString("technology"), "player", x.getInt("value"), x.optInt("debt",0)) } } ?: emptyList(), j.optJSONArray("research")?.let { arr -> (0 until arr.length()).map { arr.getString(it) }.toSet() } ?: emptySet(), j.optInt("stage",0), j.optString("response","").takeIf { it.isNotEmpty() }?.let { Response.valueOf(it) })
+        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals, Genre.values().associateWith { g -> j.optJSONObject("genreHits")?.optInt(g.name, 0) ?: 0 }), history, pending, j.optJSONArray("owned")?.let { arr -> (0 until arr.length()).map { i -> val x = arr.getJSONObject(i); StudioAsset(x.getString("id"), x.getString("technology"), "player", x.getInt("value"), x.optInt("debt",0)) } } ?: emptyList(), j.optJSONArray("research")?.let { arr -> (0 until arr.length()).map { arr.getString(it) }.toSet() } ?: emptySet(), j.optInt("stage",0), j.optString("response","").takeIf { it.isNotEmpty() }?.let { Response.valueOf(it) }, FilmCraft.values().mapNotNull { craft -> j.optJSONObject("crafts")?.optString(craft.name)?.takeIf { it.isNotEmpty() }?.let { craft to CraftInvestment.valueOf(it) } }.toMap())
     }
     fun write(s: Save): Boolean {
         val c = s.career
@@ -56,7 +56,7 @@ private class CareerStore(context: Context) {
             .put("event", p.event).put("seed", p.seed) }
         val owned = JSONArray()
         s.owned.forEach { x -> owned.put(JSONObject().put("id",x.id).put("technology",x.technologyId).put("value",x.value).put("debt",x.debt)) }
-        return prefs.edit().putString("career", JSONObject().put("stage",s.stage).put("response",s.response?.name ?: "").put("research",JSONArray(s.research.toList())).put("owned",owned).put("genreHits", JSONObject().apply { c.genreHits.forEach { (g, hits) -> put(g.name, hits) } }).put("pending", pending ?: JSONObject.NULL).put("rivals", rivals).put("version", 1).put("cash", c.cash)
+        return prefs.edit().putString("career", JSONObject().put("crafts",JSONObject().apply { s.crafts.forEach { (k,v) -> put(k.name,v.name) } }).put("stage",s.stage).put("response",s.response?.name ?: "").put("research",JSONArray(s.research.toList())).put("owned",owned).put("genreHits", JSONObject().apply { c.genreHits.forEach { (g, hits) -> put(g.name, hits) } }).put("pending", pending ?: JSONObject.NULL).put("rivals", rivals).put("version", 1).put("cash", c.cash)
             .put("completed", c.completed).put("credibility", c.credibility).put("audience", c.audience)
             .put("seed", c.seed).put("history", a).toString()).commit()
     }
@@ -112,8 +112,8 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val c = save.career
     fun finish(p: Production, response: Response? = null) {
         try {
-            val (next, film) = EmpireEngine.finish(c, p, response)
-            val updated = save.copy(career = next, history = save.history + film, pending = null, stage = 0, response = null)
+            val (next, film) = EmpireEngine.finish(c, p, response, save.crafts)
+            val updated = save.copy(career = next, history = save.history + film, pending = null, stage = 0, response = null, crafts = emptyMap())
             if (!store.write(updated)) { error = "Save failed. Please retry."; return }
             save = updated
             pending = null
@@ -215,6 +215,23 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 Text(listOf("Finalize cast and production budget.","Shoot the movie on set.","Complete editing and prepare the release.","Release the film and reveal box office results.")[stage])
                 Text("Committed budget: ₹${p.plan.budget} lakh")
             } }
+            val extra = EmpireProductionCrafts.assess(save.crafts).extraCost
+            Text("Craft upgrades: ₹$extra lakh")
+            EmpireProductionCrafts.available(c.completed, CraftStage.values()[stage]).forEach { craft ->
+                Text(craft.name.replace('_',' '))
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    CraftInvestment.values().forEach { investment ->
+                        val choices = save.crafts + (craft to investment)
+                        val total = p.plan.budget + EmpireProductionCrafts.assess(choices).extraCost + (save.response?.cost ?: 0)
+                        FilterChip(selected = save.crafts[craft] == investment,
+                            enabled = total <= c.cash,
+                            onClick = {
+                                val updated = save.copy(crafts = choices)
+                                if (store.write(updated)) { save = updated; audio.cue() } else error = "Save failed."
+                            }, label = { Text("${investment.name} +₹${investment.cost}") })
+                    }
+                }
+            }
             fun advance(response: Response? = save.response) {
                 val updated = save.copy(stage = stage+1, response = response)
                 if (store.write(updated)) { save = updated; audio.event("clapper"); error = "" } else error = "Save failed."
@@ -222,7 +239,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             if (stage == 1 && p.event && save.response == null) {
                 Text("Equipment failure • choose a response")
                 Response.values().forEach { response ->
-                    Button(enabled = p.plan.budget + response.cost <= c.cash,
+                    Button(enabled = p.plan.budget + extra + response.cost <= c.cash,
                         onClick = { advance(response) }) { Text("${response.name} • ₹${response.cost} lakh") }
                 }
             } else if (stage == 3) {
@@ -231,7 +248,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 Button(onClick = { advance() }) { Text("Complete ${stages[stage]}") }
             }
             if (stage == 0) TextButton(onClick = {
-                val updated = save.copy(pending = null, stage = 0, response = null)
+                val updated = save.copy(pending = null, stage = 0, response = null, crafts = emptyMap())
                 if (store.write(updated)) { save = updated; pending = null } else error = "Save failed."
             }) { Text("Cancel uncommitted production") }
         } else {
@@ -249,7 +266,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 onClick = {
                     audio.event("clapper")
                     val production = EmpireEngine.start(c, FilmPlan(title.trim(), genre, cast, director, budget.toInt()))
-                    val updated = save.copy(pending = production, stage = 0, response = null)
+                    val updated = save.copy(pending = production, stage = 0, response = null, crafts = emptyMap())
                     if (store.write(updated)) { save = updated; pending = production } else error = "Save failed."
                 }) { Text("Greenlight movie") }
             if (c.cash < 115) Text("Insufficient capital for another film. Financing is not implemented yet.")
