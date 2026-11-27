@@ -1,0 +1,28 @@
+name: Cinema Empire Android CI
+on:
+  push:
+    branches: [cinema-empire, cinema-empire-ci]
+  pull_request:
+    branches: [cinema-empire]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Compile and test
+        run: bash gradlew --no-daemon assembleDebug testDebugUnitTest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-unit-test-results
+          path: app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn
