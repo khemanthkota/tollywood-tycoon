@@ -86,6 +86,24 @@ class EmpireAudio {
         }
         runCatching { effect = track(samples,effectsVolume).also { it.play() } }
     }
+    fun event(name: String) {
+        effect?.release(); effect = null
+        val random = kotlin.random.Random(71)
+        val duration = if (name == "applause") 33075 else 6615
+        val samples = ShortArray(duration) { i ->
+            val t = i / 22050.0
+            val noise = random.nextDouble()*2-1
+            val signal = when(name) {
+                "clapper" -> (noise*.65 + sin(2*PI*180*t)*.35)*kotlin.math.exp(-t*35)
+                "purchase" -> sin(2*PI*(if(t<.12) 660 else 880)*t)*kotlin.math.exp(-t*9)*.6
+                "applause" -> noise*(.2+.15*sin(2*PI*17*t))*(1-i.toDouble()/duration)
+                "crisis" -> sin(2*PI*220*t)*kotlin.math.exp(-t*7)*.5
+                else -> sin(2*PI*720*t)*kotlin.math.exp(-t*25)*.4
+            }
+            (signal*14000).toInt().toShort()
+        }
+        runCatching { effect = track(samples,effectsVolume).also { it.play() } }
+    }
     fun pause() { runCatching { music?.pause(); effect?.pause(); ambience?.pause() } }
     fun resume() { runCatching { music?.play(); ambience?.play() } }
     fun release() { ambience?.release(); ambience=null; music?.release(); effect?.release(); music=null; effect=null; currentScene=null }
