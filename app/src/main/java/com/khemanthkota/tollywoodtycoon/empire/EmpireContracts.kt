@@ -34,6 +34,17 @@ data class ContractLedger(val cash:Map<String,Int>,val contracts:List<TalentCont
         return copy(cash=cash+(c.studio to balance-share),contracts=contracts.map {
             if(it.id==id) it.copy(remainingFilms=it.remainingFilms-1,activeFilm=null,bookedUntil=day) else it })
     }
+    fun transfer(id:String,replacement:TalentContract,day:Int,buyout:Int):ContractLedger {
+        val old=contracts.single { it.id==id }
+        require(old.activeFilm==null && old.remainingFilms>0 && old.expiresDay>day)
+        require(replacement.talent==old.talent && replacement.studio!=old.studio && replacement.id!=id)
+        require(buyout.toLong()>=old.remainingFilms.toLong()*old.fee/2)
+        val buyer=cash[replacement.studio]?:0
+        require(buyer.toLong()>=buyout.toLong()+replacement.advance)
+        val seller=cash[old.studio]?:0
+        return copy(cash=cash+(replacement.studio to buyer-buyout)+(old.studio to seller+buyout),
+            contracts=contracts.filterNot { it.id==id }).sign(replacement,day)
+    }
     fun terminate(id:String,studio:String):ContractLedger {
         val c=contracts.single { it.id==id }
         require(c.studio==studio && c.activeFilm==null)
