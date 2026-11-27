@@ -41,3 +41,18 @@ internal object StreamingMarket {
         )
     }
 }
+
+internal enum class DealStatus { OPEN, ACCEPTED, WALKED_AWAY }
+internal data class RightsNegotiation(val offer: RightsOffer, val rounds: Int = 0, val status: DealStatus = DealStatus.OPEN) {
+    fun counter(requestedLakh: Int, credibility: Int): RightsNegotiation {
+        require(status == DealStatus.OPEN && requestedLakh >= offer.guaranteedLakh && credibility in 0..100)
+        val ceiling = offer.guaranteedLakh.toLong() * (110 + credibility / 4) / 100
+        if (rounds >= 2 || requestedLakh.toLong() > ceiling * 12 / 10) return copy(status = DealStatus.WALKED_AWAY)
+        val revised = minOf(requestedLakh.toLong(), ceiling, Int.MAX_VALUE.toLong()).toInt()
+        return copy(offer = offer.copy(guaranteedLakh = revised), rounds = rounds + 1)
+    }
+    fun accept(book: RightsBook): Pair<RightsNegotiation, RightsBook> {
+        require(status == DealStatus.OPEN)
+        return copy(status = DealStatus.ACCEPTED) to book.accept(offer)
+    }
+}
