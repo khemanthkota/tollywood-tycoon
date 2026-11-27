@@ -119,7 +119,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             pending = null
             title = ""
             resultPopup = film
-            audio.cue(film.profit > 0)
+            audio.event(if (film.profit > 0) "applause" else "crisis")
             tab = "Studio"
             error = ""
         } catch (e: Exception) { error = e.message ?: "Cannot complete film." }
@@ -225,11 +225,11 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             Text("Minimum budget: ₹$minimum lakh")
             Button(enabled = title.isNotBlank() && (budget.toIntOrNull() ?: 0) in minimum..c.cash,
                 onClick = {
-                    audio.cue()
+                    audio.event("clapper")
                     val production = EmpireEngine.start(c, FilmPlan(title.trim(), genre, cast, director, budget.toInt()))
                     if (production.event) {
                         val updated = save.copy(pending = production)
-                        if (store.write(updated)) { save = updated; pending = production } else error = "Save failed."
+                        if (store.write(updated)) { save = updated; pending = production; audio.event("crisis") } else error = "Save failed."
                     } else finish(production)
                 }) { Text("Produce and release movie") }
             if (c.cash < 115) Text("Insufficient capital for another film. Financing is not implemented yet.")
@@ -272,7 +272,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 val result = action()
                 val updated = save.copy(career = c.copy(cash = result.balances.getValue("player")),
                     owned = result.assets.filter { it.owner == "player" })
-                if (store.write(updated)) { save = updated; error = ""; audio.cue(true) } else error = "Save failed."
+                if (store.write(updated)) { save = updated; error = ""; audio.event("purchase") } else error = "Save failed."
             } catch (e: Exception) { error = e.message ?: "Asset transaction failed." }
         }
         Text("Research and development")
