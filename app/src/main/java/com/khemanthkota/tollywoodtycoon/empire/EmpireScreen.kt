@@ -135,6 +135,10 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         })
     }
     val c = save.career
+    val monthlyPayroll = save.managers.sumOf { it.salary }
+    val loanReserve = (c.cash.toLong() - FinanceLedger(c.cash,save.loans,save.overdue).month().cash).coerceAtLeast(0L)
+    val otherMovieReserve = save.slots.movies.filterNot { it.id == save.slots.selectedId }.sumOf { it.commitment().total + monthlyPayroll.toLong() + loanReserve }
+    val productionCash = (c.cash.toLong() - loanReserve - otherMovieReserve).coerceIn(0L,Int.MAX_VALUE.toLong()).toInt()
     fun finish(p: Production, response: Response? = null) {
         try {
             val (rawNext, rawFilm) = EmpireEngine.finish(c, p, response, save.crafts)
@@ -253,7 +257,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             val extra = EmpireProductionCrafts.assess(save.crafts).extraCost
             val payrollReserve = save.managers.sumOf { it.salary }
             val responseReserve = save.response?.cost ?: if (p.event) Response.values().minOf { it.cost } else 0
-            Text("Payroll reserve: ₹$payrollReserve lakh • Available: ₹${c.cash-p.plan.budget-extra-payrollReserve-responseReserve} lakh")
+            Text("Payroll reserve: ₹$payrollReserve lakh • Available: ₹${productionCash-p.plan.budget-extra-payrollReserve-responseReserve} lakh")
             Text("Craft upgrades: ₹$extra lakh")
             val assessment = EmpireProductionCrafts.assess(save.crafts)
             Card(Modifier.fillMaxWidth()) {
@@ -261,7 +265,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     Text("Production decision review", style = MaterialTheme.typography.titleMedium)
                     Text("Base film: ₹${p.plan.budget}L • Craft investment: ₹${assessment.extraCost}L")
                     Text("Payroll: ₹${payrollReserve}L • Crisis reserve: ₹${responseReserve}L")
-                    Text("Uncommitted cash: ₹${productionFundsAvailable(c.cash,p.plan.budget,payrollReserve,extra,responseReserve)}L")
+                    Text("Uncommitted cash: ₹${productionFundsAvailable(productionCash,p.plan.budget,payrollReserve,extra,responseReserve)}L")
                     Text("Selected craft decisions: ${save.crafts.size}")
                     save.crafts.entries.forEach { (craft, investment) ->
                         Text("${craft.name.replace('_',' ')}: ${investment.name} (+₹${investment.cost}L)")
@@ -274,7 +278,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     var choices=save.crafts
                     val available=EmpireProductionCrafts.available(c.completed,CraftStage.values()[stage])
                     save.managers.forEach { manager ->
-                        val remaining=(c.cash-p.plan.budget-responseReserve-payrollReserve-EmpireProductionCrafts.assess(choices).extraCost).coerceAtLeast(0)
+                        val remaining=(productionCash-p.plan.budget-responseReserve-payrollReserve-EmpireProductionCrafts.assess(choices).extraCost).coerceAtLeast(0)
                         val report=EmpireManagers.recommend(manager,ManagerPolicy(Delegation.AUTOMATIC,30),available.filter { it !in choices },remaining)
                         choices=choices+report.choices
                     }
@@ -288,7 +292,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     CraftInvestment.values().forEach { investment ->
                         val choices = save.crafts + (craft to investment)
                         FilterChip(selected = save.crafts[craft] == investment,
-                            enabled = productionFundsAvailable(c.cash, p.plan.budget, payrollReserve, EmpireProductionCrafts.assess(choices).extraCost, responseReserve) >= 0,
+                            enabled = productionFundsAvailable(productionCash, p.plan.budget, payrollReserve, EmpireProductionCrafts.assess(choices).extraCost, responseReserve) >= 0,
                             onClick = {
                                 val updated = save.copy(crafts = choices)
                                 if (store.write(updated)) { save = updated; audio.cue() } else error = "Save failed."
@@ -304,8 +308,8 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 Text("Equipment failure • choose a response")
                 Text("Compare the cash remaining after each response before committing.")
                 Response.values().forEach { response ->
-                    Button(enabled = productionFundsAvailable(c.cash, p.plan.budget, payrollReserve, extra, response.cost) >= 0,
-                        onClick = { advance(response) }) { Text("${response.name} • ₹${response.cost}L • Left ₹${productionFundsAvailable(c.cash,p.plan.budget,payrollReserve,extra,response.cost)}L") }
+                    Button(enabled = productionFundsAvailable(productionCash, p.plan.budget, payrollReserve, extra, response.cost) >= 0,
+                        onClick = { advance(response) }) { Text("${response.name} • ₹${response.cost}L • Left ₹${productionFundsAvailable(productionCash,p.plan.budget,payrollReserve,extra,response.cost)}L") }
                 }
             } else if (stage == 3) {
                 Button(onClick = { finish(p,save.response) }) { Text("Premiere movie") }
@@ -343,7 +347,8 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             val contingency = Response.values().minOf { it.cost }
             Text("Minimum budget: ₹$minimum lakh")
             Text("Payroll: ₹$payrollReserve lakh • Contingency: ₹$contingency lakh")
-            Button(enabled = title.isNotBlank() && (budget.toIntOrNull() ?: 0) >= minimum && productionFundsAvailable(c.cash, budget.toIntOrNull() ?: 0, payrollReserve, contingency = contingency) >= 0,
+            Text("Loan and other film reserves: ₹${loanReserve + otherMovieReserve} lakh")
+            Button(enabled = title.isNotBlank() && (budget.toIntOrNull() ?: 0) >= minimum && productionFundsAvailable(productionCash, budget.toIntOrNull() ?: 0, payrollReserve, contingency = contingency) >= 0,
                 onClick = {
                     audio.event("clapper")
                     val primary = StoryGenre.valueOf(genre.name)
