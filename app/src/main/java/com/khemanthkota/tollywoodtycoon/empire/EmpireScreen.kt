@@ -145,9 +145,14 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         })
     }
     var clockSpeed by remember { mutableStateOf(0) }
-    LaunchedEffect(clockSpeed, foreground) {
-        while (clockSpeed > 0 && foreground && loaded.isSuccess) {
+    val incidentPending = save.pending?.event == true && save.stage == 1 && save.response == null && save.gameDay >= save.stageReadyDay
+    LaunchedEffect(incidentPending) {
+        if (incidentPending) tab = "Produce"
+    }
+    LaunchedEffect(clockSpeed, foreground, incidentPending) {
+        while (clockSpeed > 0 && foreground && loaded.isSuccess && !incidentPending) {
             kotlinx.coroutines.delay(4000L / clockSpeed)
+            if (save.pending?.event == true && save.stage == 1 && save.response == null && save.gameDay >= save.stageReadyDay) break
             val day = save.gameDay + 1
             val settlement = settleStreaming(save.streamingPayments,day)
             val reserved = save.slots.movies.sumOf { it.commitment().total } + (save.pending?.plan?.budget?.toLong() ?: 0L)
