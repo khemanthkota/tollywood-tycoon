@@ -283,6 +283,11 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 drawLine(Color(0xFFFFD080),Offset(w*.9f,h*.1f),Offset(w*.65f,h*.65f),4f)
             }
             Text("STAGE 01  •  STUDIO OPERATIONS", Modifier.padding(12.dp), color = MaterialTheme.colorScheme.secondary)
+            Row(Modifier.fillMaxWidth().padding(12.dp),horizontalArrangement=Arrangement.SpaceEvenly) {
+                TextButton(onClick={tab="Produce"}) { Text("Production") }
+                TextButton(onClick={tab="Market"}) { Text("Industry") }
+                TextButton(onClick={tab="Assets"}) { Text("Assets") }
+            }
         }
         Button(onClick = { tab = "Produce" }, modifier = Modifier.fillMaxWidth()) { Text("Start / resume production") }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
