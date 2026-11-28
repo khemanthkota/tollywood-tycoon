@@ -184,7 +184,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         try {
             require(productionFundsAvailable(productionCash, p.plan.budget, monthlyPayroll, EmpireProductionCrafts.assess(save.crafts).extraCost, response?.cost ?: 0) >= 0) { "Insufficient reserved funds for production and payroll." }
             val (rawNext, rawFilm) = EmpireEngine.finishWithRights(c, p, response, save.crafts, save.ottDeal?.let { RightsBook().accept(it) } ?: RightsBook(), save.releaseDay?.let { day -> ReleaseSeasonPlanner.year(day/365,"Telugu",0).forecast(day,"Telugu",p.plan.cast.appeal,100) })
-            val agreement = save.contracts.firstOrNull { it.talent == p.plan.cast.name && it.remainingFilms > 0 && it.expiresDay > c.completed*30 }
+            val agreement = save.contracts.firstOrNull { it.talent == p.plan.cast.name && it.remainingFilms > 0 && it.expiresDay > save.gameDay }
             val discount = agreement?.let { (p.plan.cast.fee-it.fee).coerceAtLeast(0) } ?: 0
             val film = rawFilm.copy(cost=rawFilm.cost-discount, actualReleaseDay=save.gameDay, ottSold=save.ottDeal != null)
             val payment = save.ottDeal?.let { StreamingPayment.from(p.plan.title,it,save.gameDay,film.gross) }?.takeIf { it.dueDay > save.gameDay }
@@ -256,7 +256,15 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         Text("Studio command center", style = MaterialTheme.typography.headlineSmall)
         StudioEvents.birthdays(save.gameDay).forEach { Text("Birthday today: ${it.name}") }
         Text("Business arrears: ₹${save.accounts.arrears}L • Last annual tax: ₹${save.accounts.lastTax}L")
-        if(StudioEvents.distressed(c.cash,save.accounts.arrears)) Text("Financial distress: sell assets or arrange financing.",color=MaterialTheme.colorScheme.error)
+        if(StudioEvents.distressed(c.cash,save.accounts.arrears+save.overdue.toLong()) || c.cash<0) {
+            Text("Financial distress: sell assets or arrange financing.",color=MaterialTheme.colorScheme.error)
+            var confirmBankruptcy by remember { mutableStateOf(false) }
+            OutlinedButton(onClick={confirmBankruptcy=true}) { Text("Declare bankruptcy") }
+            if(confirmBankruptcy) AlertDialog(onDismissRequest={confirmBankruptcy=false},title={Text("Close studio and restart?")},text={Text("This ends your current career, cancels productions and removes assets, debts and film history. Start a new studio.")},confirmButton={TextButton(onClick={
+                val updated=Save()
+                if(store.write(updated)) { clockSpeed=0; save=updated; pending=null; confirmBankruptcy=false; error="" } else error="Save failed."
+            }) { Text("Restart career") }},dismissButton={TextButton(onClick={confirmBankruptcy=false}) { Text("Cancel") }})
+        }
         if(save.managers.isNotEmpty()) Text("Managers automatically send affordable birthday gifts.")
         Card(Modifier.fillMaxWidth()) {
             Canvas(Modifier.fillMaxWidth().height(130.dp)) {
@@ -464,7 +472,9 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             Text("Director")
             Director.values().forEach { d -> FilterChip(director == d, { director = d }, { Text("${d.name} • ₹${d.fee} lakh") }) }
             OutlinedTextField(budget, { budget = it.filter(Char::isDigit).take(8) }, label = { Text("Total budget (lakh)") }, singleLine = true)
-            val minimum = cast.fee + director.fee + 60
+            val rivalBid = StudioEvents.rivalBid(c.rivals,cast,save.gameDay,c.seed)
+            val minimum = maxOf(cast.fee,rivalBid) + director.fee + 60
+            if(rivalBid>cast.fee) Text("Rival talent offer: ₹$rivalBid L • Higher production budget required.")
             val payrollReserve = save.managers.sumOf { it.salary }
             val contingency = Response.values().minOf { it.cost }
             Text("Minimum budget: ₹$minimum lakh")
@@ -493,6 +503,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             }
             c.rivals.sortedByDescending { it.cash }.forEach { s ->
                 Text("${s.name} • ₹${s.cash} lakh • ${s.preferredGenre.name}")
+                Text("Target release: day ${StudioEvents.targetDay(s,save.gameDay)+1}")
             }
             market.rivals.forEach { release -> Text("Upcoming rival release: ${release.studio} • ${release.genre.name}") }
         }
@@ -538,7 +549,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
         val eligibility = AssetEligibility(c.completed, achievements)
         val inventory = EmpireAssetCatalog.initialAssets(industry).filter { a -> save.owned.none { it.id == a.id } } + save.owned
-        val economy = AssetEconomy(inventory, c.rivals.associate { it.name to it.cash } + ("player" to c.cash)).releaseBookings(c.completed*30)
+        val economy = AssetEconomy(inventory, c.rivals.associate { it.name to it.cash } + ("player" to c.cash)).releaseBookings(save.gameDay)
         fun transact(action: () -> AssetEconomy) {
             try {
                 val result = action()
@@ -619,7 +630,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             else if (a.debt == 0) {
                 val renter = c.rivals.filter { it.cash >= a.value/10+100 }.maxByOrNull { it.cash }
                 if (renter != null) Button(enabled = pending == null && save.slots.movies.isEmpty(), onClick = {
-                    transact { economy.rent(a.id,renter.name,c.completed*30,30,(a.value/10).coerceAtLeast(1)) }
+                    transact { economy.rent(a.id,renter.name,save.gameDay,30,(a.value/10).coerceAtLeast(1)) }
                 }) { Text("Rent to ${renter.name} • ₹${(a.value/10).coerceAtLeast(1)} lakh") }
                 Button(enabled = pending == null && save.slots.movies.isEmpty() && a.value >= 2, onClick = {
                     transact { economy.mortgage(a.id,"player",a.value/2) }
@@ -675,11 +686,11 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         if (c.completed < 5) Text("Multi-film agreements unlock after five films.")
         else {
             Talent.values().forEach { talent ->
-                val existing = save.contracts.firstOrNull { it.talent == talent.name && it.remainingFilms > 0 && it.expiresDay > c.completed*30 }
+                val existing = save.contracts.firstOrNull { it.talent == talent.name && it.remainingFilms > 0 && it.expiresDay > save.gameDay }
                 if (existing != null) Text("${talent.name}: ${existing.remainingFilms} films remaining")
                 else Button(enabled = pending == null && save.slots.movies.isEmpty() && c.cash >= talent.fee/2, onClick = {
-                    val agreement = TalentContract("contract-${c.completed}-${talent.name}",talent.name,"player",ContractType.MULTI_FILM,3,talent.fee*80/100,talent.fee/2,expiresDay=c.completed*30+360)
-                    val ledger = ContractLedger(mapOf("player" to c.cash),save.contracts).sign(agreement,c.completed*30)
+                    val agreement = TalentContract("contract-${c.completed}-${talent.name}",talent.name,"player",ContractType.MULTI_FILM,3,talent.fee*80/100,talent.fee/2,expiresDay=save.gameDay+360)
+                    val ledger = ContractLedger(mapOf("player" to c.cash),save.contracts).sign(agreement,save.gameDay)
                     val updated = save.copy(career=c.copy(cash=ledger.cash.getValue("player")),contracts=ledger.contracts)
                     if(store.write(updated)) save=updated else error="Save failed."
                 }) { Text("Sign ${talent.name} • 3 films • ₹${talent.fee/2} lakh advance") }

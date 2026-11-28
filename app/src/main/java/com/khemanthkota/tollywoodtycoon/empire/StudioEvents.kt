@@ -8,6 +8,20 @@ internal object StudioEvents {
         rival.copy(cash=(rival.cash.toLong()-budget+revenue).coerceIn(0,Int.MAX_VALUE.toLong()).toInt(),
             preferredGenre=if(rng.nextInt(100)<20) Genre.values().random(rng) else rival.preferredGenre)
     }
+    fun rivalBid(rivals: List<RivalStudio>, talent: Talent, day: Int, seed: Int): Int =
+        rivals.maxOfOrNull { rival ->
+            val rng = kotlin.random.Random(seed xor (day/7) xor rival.name.hashCode() xor talent.ordinal)
+            if(rival.cash < talent.fee*3 || rng.nextInt(100)>=rival.ambition.coerceIn(0,100)) 0
+            else (talent.fee.toLong() * rng.nextInt(100,151)/100).coerceAtMost(rival.cash.toLong()/3).toInt()
+        } ?: 0
+    fun targetDay(rival: RivalStudio, day: Int): Int {
+        val cycleStart = day / 28 * 28
+        val candidates = (cycleStart+28..cycleStart+55)
+        return candidates.maxByOrNull { d ->
+            val f = ReleaseSeasonPlanner.year(d/365,"Telugu",0).forecast(d,"Telugu",60,100)
+            f.occupancy*f.availableScreens + kotlin.random.Random(rival.name.hashCode() xor d).nextInt(12)
+        } ?: day+14
+    }
     fun birthdays(day: Int): List<Talent> = Talent.values().filter { (day % 365) == (35 + it.ordinal * 97) % 365 }
     fun occupancy(base: Double, ownFilm: Boolean, rivalCount: Int): Int =
         ((base*100).toInt() + if(ownFilm) 10 else 0).plus(rivalCount.coerceIn(0,3)*3).coerceIn(0,100)
