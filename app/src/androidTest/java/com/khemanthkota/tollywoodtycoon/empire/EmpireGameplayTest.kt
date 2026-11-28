@@ -39,8 +39,9 @@ class EmpireGameplayTest {
             awaitDay(CareerStore(context).load().stageReadyDay)
             tap("Complete Post-production")
             compose.onNodeWithText("Pause").performClick()
-            val day = CareerStore(context).load().gameDay
-            tap("${day%365+1}")
+            compose.onNodeWithTag("earliest-release").performScrollTo().performClick()
+            compose.waitForIdle()
+            assertNotNull(CareerStore(context).load().releaseDay)
             tap("Premiere movie")
             compose.waitForIdle()
             val saved = CareerStore(context).load()
