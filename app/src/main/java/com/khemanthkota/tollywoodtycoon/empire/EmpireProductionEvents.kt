@@ -22,3 +22,19 @@ data class EventLedger(val pendingId: String? = null, val decisions: List<EventD
     val qualityDelta get() = decisions.sumOf { it.quality }
     val delayDays get() = decisions.sumOf { it.delay }
 }
+
+object EmpireEventCatalog {
+    val all: List<ProductionEvent> = EmpirePreproductionEvents.catalog +
+        EmpireShootingEvents.catalog + EmpirePostproductionEvents.catalog +
+        EmpireMarketingEvents.catalog + EmpireDistributionEvents.catalog
+    private val byId = all.associateBy { it.id }
+    init { require(byId.size == all.size) }
+    fun find(id: String): ProductionEvent? = byId[id]
+    fun next(stage: EventStage, ledger: EventLedger, seed: Int, day: Int): ProductionEvent? {
+        if (ledger.pendingId != null) return null
+        val resolved = ledger.decisions.map { it.eventId }.toSet()
+        val candidates = all.filter { it.stage == stage && it.id !in resolved }
+        if (candidates.isEmpty()) return null
+        return candidates[kotlin.random.Random(seed xor day).nextInt(candidates.size)]
+    }
+}
