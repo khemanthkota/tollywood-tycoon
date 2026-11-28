@@ -53,7 +53,7 @@ private fun encodeSlots(slots: ProductionSlots): JSONArray = JSONArray().apply {
     slots.movies.forEach { slot -> put(JSONObject().put("id",slot.id).put("ottOffers",encodeNegotiations(slot.ottOffers)).put("ottDeal",encodeOtt(slot.ottDeal)).put("stageReadyDay",slot.stageReadyDay).put("releaseDay",slot.releaseDay ?: -1).put("production",encodeProduction(slot.production)).put("stage",slot.stage).put("response",slot.response?.name ?: "").put("crafts",JSONObject().apply { slot.crafts.forEach { (k,v) -> put(k.name,v.name) } })) }
 }
 
-internal data class Save(val career: Career = Career(seed = kotlin.random.Random.nextInt()), val history: List<FilmResult> = emptyList(), val pending: Production? = null, val owned: List<StudioAsset> = emptyList(), val research: Set<String> = emptySet(), val stage: Int = 0, val response: Response? = null, val crafts: Map<FilmCraft,CraftInvestment> = emptyMap(), val contracts: List<TalentContract> = emptyList(), val loans: List<StudioLoan> = emptyList(), val overdue: Int = 0, val managers: List<StudioManager> = emptyList(), val slots: ProductionSlots = ProductionSlots(), val releaseDay: Int? = null, val gameDay: Int = 0, val stageReadyDay: Int = 0, val ottDeal: RightsOffer? = null, val ottOffers: List<RightsNegotiation> = emptyList(), val streamingPayments: List<StreamingPayment> = emptyList())
+internal data class Save(val career: Career = Career(seed = kotlin.random.Random.nextInt()), val history: List<FilmResult> = emptyList(), val pending: Production? = null, val owned: List<StudioAsset> = emptyList(), val research: Set<String> = emptySet(), val stage: Int = 0, val response: Response? = null, val crafts: Map<FilmCraft,CraftInvestment> = emptyMap(), val contracts: List<TalentContract> = emptyList(), val loans: List<StudioLoan> = emptyList(), val overdue: Int = 0, val managers: List<StudioManager> = emptyList(), val slots: ProductionSlots = ProductionSlots(), val releaseDay: Int? = null, val gameDay: Int = 0, val stageReadyDay: Int = 0, val ottDeal: RightsOffer? = null, val ottOffers: List<RightsNegotiation> = emptyList(), val streamingPayments: List<StreamingPayment> = emptyList(), val accounts: BusinessAccounts = BusinessAccounts(), val theaters: List<StudioTheater> = emptyList(), val relationships: StudioRelationships = StudioRelationships())
 internal class CareerStore(context: Context) {
     private val prefs = context.getSharedPreferences("cinema_empire_v1", Context.MODE_PRIVATE)
     fun load(): Save {
@@ -74,7 +74,7 @@ internal class CareerStore(context: Context) {
         val pending = j.optJSONObject("pending")?.let { p ->
             decodeProduction(p)
         }
-        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals, Genre.values().associateWith { g -> j.optJSONObject("genreHits")?.optInt(g.name, 0) ?: 0 }), history, pending, j.optJSONArray("owned")?.let { arr -> (0 until arr.length()).map { i -> val x = arr.getJSONObject(i); StudioAsset(x.getString("id"), x.getString("technology"), x.optString("owner","player"), x.getInt("value"), x.optInt("debt",0), x.optString("renter","").takeIf { it.isNotEmpty() }, x.optInt("bookedUntil",0), x.optBoolean("auction",false)) } } ?: emptyList(), j.optJSONArray("research")?.let { arr -> (0 until arr.length()).map { arr.getString(it) }.toSet() } ?: emptySet(), j.optInt("stage",0), j.optString("response","").takeIf { it.isNotEmpty() }?.let { Response.valueOf(it) }, FilmCraft.values().mapNotNull { craft -> j.optJSONObject("crafts")?.optString(craft.name)?.takeIf { it.isNotEmpty() }?.let { craft to CraftInvestment.valueOf(it) } }.toMap(), j.optJSONArray("contracts")?.let { arr -> (0 until arr.length()).map { i -> val t = arr.getJSONObject(i); TalentContract(t.getString("id"),t.getString("talent"),"player",ContractType.valueOf(t.getString("type")),t.getInt("remaining"),t.getInt("fee"),t.getInt("advance"),t.getInt("share"),t.getInt("expires")) } } ?: emptyList(), j.optJSONArray("loans")?.let { arr -> (0 until arr.length()).map { i -> val l=arr.getJSONObject(i); StudioLoan(l.getString("id"),l.getInt("principal"),l.getInt("outstanding"),l.getInt("rate"),l.getInt("months")) } } ?: emptyList(), j.optInt("overdue",0), j.optJSONArray("managers")?.let { arr -> (0 until arr.length()).map { i -> val m=arr.getJSONObject(i); StudioManager(m.getString("id"),Department.valueOf(m.getString("department")),m.getInt("skill"),m.getInt("reliability"),m.getInt("salary"),m.optInt("experience")) } } ?: emptyList(), decodeSlots(j), j.optInt("releaseDay",-1).takeIf { it >= 0 }, j.optInt("gameDay", j.getInt("completed")*30), j.optInt("stageReadyDay",0), decodeOtt(j.optJSONObject("ottDeal")), decodeNegotiations(j.optJSONArray("ottOffers")), j.optJSONArray("streamingPayments")?.let { arr -> (0 until arr.length()).map { i -> val t=arr.getJSONObject(i); StreamingPayment(t.getString("film"),t.getString("buyer"),t.getInt("day"),t.getInt("amount")) } } ?: emptyList())
+        return Save(Career(j.getInt("cash"), j.getInt("completed"), j.getInt("credibility"), j.getInt("audience"), j.getInt("seed"), rivals, Genre.values().associateWith { g -> j.optJSONObject("genreHits")?.optInt(g.name, 0) ?: 0 }), history, pending, j.optJSONArray("owned")?.let { arr -> (0 until arr.length()).map { i -> val x = arr.getJSONObject(i); StudioAsset(x.getString("id"), x.getString("technology"), x.optString("owner","player"), x.getInt("value"), x.optInt("debt",0), x.optString("renter","").takeIf { it.isNotEmpty() }, x.optInt("bookedUntil",0), x.optBoolean("auction",false)) } } ?: emptyList(), j.optJSONArray("research")?.let { arr -> (0 until arr.length()).map { arr.getString(it) }.toSet() } ?: emptySet(), j.optInt("stage",0), j.optString("response","").takeIf { it.isNotEmpty() }?.let { Response.valueOf(it) }, FilmCraft.values().mapNotNull { craft -> j.optJSONObject("crafts")?.optString(craft.name)?.takeIf { it.isNotEmpty() }?.let { craft to CraftInvestment.valueOf(it) } }.toMap(), j.optJSONArray("contracts")?.let { arr -> (0 until arr.length()).map { i -> val t = arr.getJSONObject(i); TalentContract(t.getString("id"),t.getString("talent"),"player",ContractType.valueOf(t.getString("type")),t.getInt("remaining"),t.getInt("fee"),t.getInt("advance"),t.getInt("share"),t.getInt("expires")) } } ?: emptyList(), j.optJSONArray("loans")?.let { arr -> (0 until arr.length()).map { i -> val l=arr.getJSONObject(i); StudioLoan(l.getString("id"),l.getInt("principal"),l.getInt("outstanding"),l.getInt("rate"),l.getInt("months")) } } ?: emptyList(), j.optInt("overdue",0), j.optJSONArray("managers")?.let { arr -> (0 until arr.length()).map { i -> val m=arr.getJSONObject(i); StudioManager(m.getString("id"),Department.valueOf(m.getString("department")),m.getInt("skill"),m.getInt("reliability"),m.getInt("salary"),m.optInt("experience")) } } ?: emptyList(), decodeSlots(j), j.optInt("releaseDay",-1).takeIf { it >= 0 }, j.optInt("gameDay", j.getInt("completed")*30), j.optInt("stageReadyDay",0), decodeOtt(j.optJSONObject("ottDeal")), decodeNegotiations(j.optJSONArray("ottOffers")), j.optJSONArray("streamingPayments")?.let { arr -> (0 until arr.length()).map { i -> val t=arr.getJSONObject(i); StreamingPayment(t.getString("film"),t.getString("buyer"),t.getInt("day"),t.getInt("amount")) } } ?: emptyList(), BusinessAccounts(j.optLong("taxableProfit"),j.optLong("businessArrears"),j.optLong("lastTax")), j.optJSONArray("theaters")?.let { a -> (0 until a.length()).map { i -> val t=a.getJSONObject(i); StudioTheater(t.getString("id"),TheaterAcquisition.valueOf(t.getString("type")),t.getInt("opening")) } } ?: emptyList(), StudioRelationships(j.optJSONObject("relationships")?.let { o -> o.keys().asSequence().associateWith { o.getInt(it) } } ?: emptyMap()))
     }
     fun write(s: Save): Boolean {
         val c = s.career
@@ -88,7 +88,7 @@ internal class CareerStore(context: Context) {
         val pending = s.pending?.let { encodeProduction(it) }
         val owned = JSONArray()
         s.owned.forEach { x -> owned.put(JSONObject().put("id",x.id).put("technology",x.technologyId).put("value",x.value).put("debt",x.debt).put("owner",x.owner).put("renter",x.renter ?: "").put("bookedUntil",x.bookedUntil).put("auction",x.auction)) }
-        return prefs.edit().putString("career", JSONObject().put("streamingPayments",JSONArray().apply { s.streamingPayments.forEach { t -> put(JSONObject().put("film",t.film).put("buyer",t.buyer).put("day",t.dueDay).put("amount",t.amount)) } }).put("ottOffers",encodeNegotiations(s.ottOffers)).put("ottDeal",encodeOtt(s.ottDeal)).put("stageReadyDay",s.stageReadyDay).put("gameDay",s.gameDay).put("releaseDay",s.releaseDay ?: -1).put("movieSlots",encodeSlots(s.slots)).put("selectedMovie",s.slots.selectedId ?: "").put("managers",JSONArray().apply { s.managers.forEach { m -> put(JSONObject().put("id",m.id).put("department",m.department.name).put("skill",m.skill).put("reliability",m.reliability).put("salary",m.salary).put("experience",m.experience)) } }).put("overdue",s.overdue).put("loans",JSONArray().apply { s.loans.forEach { l -> put(JSONObject().put("id",l.id).put("principal",l.principal).put("outstanding",l.outstanding).put("rate",l.annualRateBps).put("months",l.monthsRemaining)) } }).put("contracts",JSONArray().apply { s.contracts.forEach { t -> put(JSONObject().put("id",t.id).put("talent",t.talent).put("type",t.type.name).put("remaining",t.remainingFilms).put("fee",t.fee).put("advance",t.advance).put("share",t.profitShare).put("expires",t.expiresDay)) } }).put("crafts",JSONObject().apply { s.crafts.forEach { (k,v) -> put(k.name,v.name) } }).put("stage",s.stage).put("response",s.response?.name ?: "").put("research",JSONArray(s.research.toList())).put("owned",owned).put("genreHits", JSONObject().apply { c.genreHits.forEach { (g, hits) -> put(g.name, hits) } }).put("pending", pending ?: JSONObject.NULL).put("rivals", rivals).put("version", 1).put("cash", c.cash)
+        return prefs.edit().putString("career", JSONObject().put("theaters",JSONArray().apply { s.theaters.forEach { t -> put(JSONObject().put("id",t.id).put("type",t.acquisition.name).put("opening",t.openingDay)) } }).put("relationships",JSONObject().apply { s.relationships.scores.forEach { (k,v) -> put(k,v) } }).put("taxableProfit",s.accounts.taxableProfit).put("businessArrears",s.accounts.arrears).put("lastTax",s.accounts.lastTax).put("streamingPayments",JSONArray().apply { s.streamingPayments.forEach { t -> put(JSONObject().put("film",t.film).put("buyer",t.buyer).put("day",t.dueDay).put("amount",t.amount)) } }).put("ottOffers",encodeNegotiations(s.ottOffers)).put("ottDeal",encodeOtt(s.ottDeal)).put("stageReadyDay",s.stageReadyDay).put("gameDay",s.gameDay).put("releaseDay",s.releaseDay ?: -1).put("movieSlots",encodeSlots(s.slots)).put("selectedMovie",s.slots.selectedId ?: "").put("managers",JSONArray().apply { s.managers.forEach { m -> put(JSONObject().put("id",m.id).put("department",m.department.name).put("skill",m.skill).put("reliability",m.reliability).put("salary",m.salary).put("experience",m.experience)) } }).put("overdue",s.overdue).put("loans",JSONArray().apply { s.loans.forEach { l -> put(JSONObject().put("id",l.id).put("principal",l.principal).put("outstanding",l.outstanding).put("rate",l.annualRateBps).put("months",l.monthsRemaining)) } }).put("contracts",JSONArray().apply { s.contracts.forEach { t -> put(JSONObject().put("id",t.id).put("talent",t.talent).put("type",t.type.name).put("remaining",t.remainingFilms).put("fee",t.fee).put("advance",t.advance).put("share",t.profitShare).put("expires",t.expiresDay)) } }).put("crafts",JSONObject().apply { s.crafts.forEach { (k,v) -> put(k.name,v.name) } }).put("stage",s.stage).put("response",s.response?.name ?: "").put("research",JSONArray(s.research.toList())).put("owned",owned).put("genreHits", JSONObject().apply { c.genreHits.forEach { (g, hits) -> put(g.name, hits) } }).put("pending", pending ?: JSONObject.NULL).put("rivals", rivals).put("version", 1).put("cash", c.cash)
             .put("completed", c.completed).put("credibility", c.credibility).put("audience", c.audience)
             .put("seed", c.seed).put("history", a).toString()).commit()
     }
@@ -150,12 +150,23 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             kotlinx.coroutines.delay(4000L / clockSpeed)
             val day = save.gameDay + 1
             val settlement = settleStreaming(save.streamingPayments,day)
-            val updated = save.copy(gameDay = day, streamingPayments = settlement.remaining, career = save.career.copy(cash = Math.addExact(save.career.cash,settlement.received)))
+            val reserved = save.slots.movies.sumOf { it.commitment().total } + (save.pending?.plan?.budget?.toLong() ?: 0L)
+            val ownFilm = save.history.any { it.actualReleaseDay >= 0 && day-it.actualReleaseDay in 1..28 && it.gross > 0 }
+            val occupancy = if(ownFilm) 75 else 45 + kotlin.random.Random(save.career.seed xor day).nextInt(35)
+            val theaterNet = save.theaters.sumOf { t -> t.dailyMargin(day,occupancy,ownFilm) - if(BusinessCalendar.monthBoundary(day) && t.operating(day)) t.acquisition.monthly else 0 }
+            val business = BusinessCalendar.closeDay(day,Math.addExact(Math.addExact(save.career.cash,settlement.received),theaterNet),save.accounts.record(theaterNet.toLong()),save.managers.sumOf { it.salary },reserved)
+            val finance = FinanceLedger(business.cash,save.loans,save.overdue)
+            val monthly = if(BusinessCalendar.monthBoundary(day)) {
+                val available = (business.cash.toLong()-reserved).coerceAtLeast(0).toInt()
+                val paid = FinanceLedger(available,save.loans,save.overdue).month()
+                FinanceLedger(Math.addExact(business.cash-available,paid.cash),paid.loans,paid.overdue)
+            } else finance
+            val updated = save.copy(gameDay = day, streamingPayments = settlement.remaining, accounts = business.accounts, loans = monthly.loans, overdue = monthly.overdue, career = save.career.copy(cash = monthly.cash))
             if (store.write(updated)) save = updated else { clockSpeed = 0; error = "Clock save failed." }
         }
     }
     val c = save.career
-    val monthlyPayroll = save.managers.sumOf { it.salary }
+    val monthlyPayroll = BusinessCalendar.employeeCost(save.managers.sumOf { it.salary },false)
     val loanReserve = (c.cash.toLong() - FinanceLedger(c.cash,save.loans,save.overdue).month().cash).coerceAtLeast(0L)
     val otherMovieReserve = save.slots.movies.sumOf { it.commitment().total + monthlyPayroll.toLong() + loanReserve }
     val productionCash = (c.cash.toLong() - loanReserve - otherMovieReserve).coerceIn(0L,Int.MAX_VALUE.toLong()).toInt()
@@ -169,12 +180,11 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             val payment = save.ottDeal?.let { StreamingPayment.from(p.plan.title,it,save.gameDay,film.gross) }?.takeIf { it.dueDay > save.gameDay }
             val next = rawNext.copy(cash=rawNext.cash+discount-(payment?.amount ?: 0))
             val updatedContracts = save.contracts.map { if(it.id==agreement?.id) it.copy(remainingFilms=it.remainingFilms-1) else it }
-            val payroll = save.managers.sumOf { it.salary }
-            require(next.cash >= payroll) { "Insufficient cash for manager payroll" }
-            val finance = FinanceLedger(next.cash-payroll,save.loans,save.overdue).month()
+            val payroll = monthlyPayroll
+            val finance = FinanceLedger(next.cash,save.loans,save.overdue)
             val reserved = save.slots.movies.sumOf { it.commitment().total + payroll.toLong() + loanReserve }
             require(finance.cash.toLong() >= reserved) { "Settlement would consume funds reserved for other productions." }
-            val updated = save.copy(career = next.copy(cash=finance.cash), loans=finance.loans, overdue=finance.overdue, history = save.history + film, streamingPayments = save.streamingPayments + listOfNotNull(payment), contracts = updatedContracts, pending = null, stage = 0, response = null, crafts = emptyMap(), releaseDay = null, ottDeal = null, ottOffers = emptyList())
+            val updated = save.copy(relationships = save.ottDeal?.let { save.relationships.change(it.buyer,3) } ?: save.relationships, accounts = save.accounts.record(film.profit.toLong()), career = next.copy(cash=finance.cash), loans=finance.loans, overdue=finance.overdue, history = save.history + film, streamingPayments = save.streamingPayments + listOfNotNull(payment), contracts = updatedContracts, pending = null, stage = 0, response = null, crafts = emptyMap(), releaseDay = null, ottDeal = null, ottOffers = emptyList())
             if (!store.write(updated)) { error = "Save failed. Please retry."; return }
             save = updated
             pending = null
@@ -348,7 +358,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             var showOtt by remember(p) { mutableStateOf(false) }
             OutlinedButton(onClick = {
                 if(save.ottDeal == null && save.ottOffers.isEmpty()) {
-                    val updated = save.copy(ottOffers = StreamingMarket.offers(p.plan,c.credibility,c.seed+stage).map { RightsNegotiation(it) })
+                    val updated = save.copy(ottOffers = StreamingMarket.offers(p.plan,c.credibility,c.seed+stage).map { RightsNegotiation(it.copy(guaranteedLakh=it.guaranteedLakh*(100+save.relationships.platformPremium(it.buyer))/100)) })
                     if(store.write(updated)) { save=updated; showOtt=true } else error="Save failed."
                 } else showOtt=true
             }) { Text(save.ottDeal?.let { "OTT signed: ${it.buyer}" } ?: "Explore OTT offers") }
@@ -367,6 +377,15 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                                 Text("${deal.offer.buyer} • ₹${deal.offer.guaranteedLakh}L")
                                 Text(if(deal.offer.directStreaming) "Direct OTT • no box office" else "${deal.offer.theatricalWindowDays}-day window • bonus ₹${deal.offer.bonusLakh}L")
                                 if(deal.status == DealStatus.OPEN) {
+                                    if(!deal.offer.directStreaming) Row(Modifier.horizontalScroll(rememberScrollState())) {
+                                        listOf(14,28,56,90).forEach { window ->
+                                            FilterChip(selected=deal.offer.theatricalWindowDays==window,onClick={
+                                                val previous=deal.offer.theatricalWindowDays
+                                                val revised=deal.offer.copy(theatricalWindowDays=window,guaranteedLakh=(deal.offer.guaranteedLakh.toLong()*(150-window)/(150-previous)).toInt())
+                                                persistOffers(offers.mapIndexed { i,old -> if(i==index) old.copy(offer=revised) else old })
+                                            },label={Text("$window days")})
+                                        }
+                                    }
                                     TextButton(onClick = { persistOffers(offers.mapIndexed { i, old -> if(i==index) old.counter(old.offer.guaranteedLakh*120/100,c.credibility) else old }) }) { Text("Counter +20%") }
                                     TextButton(onClick = {
                                         val updated = save.copy(ottDeal = deal.offer)
@@ -465,6 +484,22 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
         if (tab == "Assets" && (pending != null || save.slots.movies.isNotEmpty())) { Text("Finish or cancel all productions before changing assets.") }
         if (tab == "Assets" && pending == null && save.slots.movies.isEmpty()) {
+        Text("Theater business", style = MaterialTheme.typography.titleLarge)
+        save.theaters.forEach { t -> Text("${t.id} • ${t.acquisition.name} • ${if(t.operating(save.gameDay)) "Open" else "Opens day ${t.openingDay}"}") }
+        TheaterAcquisition.values().forEach { mode ->
+            OutlinedButton(enabled=c.cash >= mode.upfront,onClick={
+                val theater=StudioTheater("Cinema ${save.theaters.size+1}",mode,save.gameDay+mode.buildDays)
+                val updated=save.copy(theaters=save.theaters+theater,career=c.copy(cash=c.cash-mode.upfront))
+                if(store.write(updated)) save=updated else error="Save failed."
+            }) { Text("${mode.name} theater • ₹${mode.upfront}L") }
+        }
+        Text("Celebrity relationships", style = MaterialTheme.typography.titleLarge)
+        Talent.values().forEach { talent ->
+            OutlinedButton(enabled=c.cash>=5,onClick={
+                val updated=save.copy(relationships=save.relationships.gift(talent.name,5),career=c.copy(cash=c.cash-5))
+                if(store.write(updated)) save=updated else error="Save failed."
+            }) { Text("Gift ${talent.name} • ₹5L • Trust ${save.relationships.score(talent.name)}") }
+        }
         Text("Asset marketplace", style = MaterialTheme.typography.titleLarge)
         val year = 2026 + c.completed / 4
         val discovered = setOf("digital4k","largeformat","ledstage") + save.research +
@@ -669,7 +704,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                             val payment = PostReleaseStreaming.payment(current,offer,current.actualReleaseDay,save.gameDay)
                             val revised = current.copy(ottSold=true,rights=Math.addExact(current.rights,payment.amount),revenue=Math.addExact(current.revenue,payment.amount))
                             val immediate = payment.dueDay <= save.gameDay
-                            val updated = save.copy(history=save.history.mapIndexed { i,f -> if(i==index) revised else f },
+                            val updated = save.copy(accounts=save.accounts.record(payment.amount.toLong()),history=save.history.mapIndexed { i,f -> if(i==index) revised else f },
                                 streamingPayments=save.streamingPayments + if(immediate) emptyList() else listOf(payment),
                                 career=save.career.copy(cash=Math.addExact(save.career.cash,if(immediate) payment.amount else 0)))
                             if(store.write(updated)) save=updated else error="Save failed."
