@@ -5,7 +5,10 @@ internal object PostReleaseStreaming {
         require(releaseDay >= 0 && currentDay >= releaseDay)
         if (alreadySold || film.gross <= 0 || currentDay-releaseDay !in 7..90) return emptyList()
         val age = currentDay-releaseDay
-        val base = PostReleasePricing.price(film, age)
+        val round = (age-7)/14
+        val rng = kotlin.random.Random(film.title.hashCode() xor releaseDay xor round)
+        val viral = if(rng.nextInt(100)<8) 125 else 100
+        val base = (PostReleasePricing.price(film, 7+round*14).toLong()*viral*rng.nextInt(85,116)/10000).coerceIn(1,Int.MAX_VALUE.toLong()/2).toInt()
         return listOf(
             RightsOffer("StreamVista",RightsCategory.OTT,base,theatricalWindowDays=56),
             RightsOffer("CinemaPlus",RightsCategory.OTT,base*85/100,theatricalWindowDays=28)
