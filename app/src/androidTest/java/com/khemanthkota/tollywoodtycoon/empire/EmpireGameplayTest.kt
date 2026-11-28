@@ -27,9 +27,20 @@ class EmpireGameplayTest {
             tap("Start / resume production")
             compose.onNodeWithText("Movie title").performScrollTo().performTextInput("Smoke Test Film")
             tap("Greenlight movie")
+            compose.onNodeWithText("Complete Pre-production").performScrollTo().assertIsNotEnabled()
+            compose.onNodeWithText("10×").performClick()
+            fun awaitDay(day: Int) {
+                compose.waitUntil(timeoutMillis = 90000) { CareerStore(context).load().gameDay >= day }
+            }
+            awaitDay(CareerStore(context).load().stageReadyDay)
             tap("Complete Pre-production")
+            awaitDay(CareerStore(context).load().stageReadyDay)
             tap("Complete Principal photography")
+            awaitDay(CareerStore(context).load().stageReadyDay)
             tap("Complete Post-production")
+            compose.onNodeWithText("Pause").performClick()
+            val day = CareerStore(context).load().gameDay
+            tap("${day%365+1}")
             tap("Premiere movie")
             compose.waitForIdle()
             val saved = CareerStore(context).load()
