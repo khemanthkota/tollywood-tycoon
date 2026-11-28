@@ -153,7 +153,11 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             val reserved = save.slots.movies.sumOf { it.commitment().total } + (save.pending?.plan?.budget?.toLong() ?: 0L)
             val business = BusinessCalendar.closeDay(day,Math.addExact(save.career.cash,settlement.received),save.accounts,save.managers.sumOf { it.salary },reserved)
             val finance = FinanceLedger(business.cash,save.loans,save.overdue)
-            val monthly = if(BusinessCalendar.monthBoundary(day) && reserved == 0L) finance.month() else finance
+            val monthly = if(BusinessCalendar.monthBoundary(day)) {
+                val available = (business.cash.toLong()-reserved).coerceAtLeast(0).toInt()
+                val paid = FinanceLedger(available,save.loans,save.overdue).month()
+                FinanceLedger(Math.addExact(business.cash-available,paid.cash),paid.loans,paid.overdue)
+            } else finance
             val updated = save.copy(gameDay = day, streamingPayments = settlement.remaining, accounts = business.accounts, loans = monthly.loans, overdue = monthly.overdue, career = save.career.copy(cash = monthly.cash))
             if (store.write(updated)) save = updated else { clockSpeed = 0; error = "Clock save failed." }
         }
@@ -672,7 +676,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                             val payment = PostReleaseStreaming.payment(current,offer,current.actualReleaseDay,save.gameDay)
                             val revised = current.copy(ottSold=true,rights=Math.addExact(current.rights,payment.amount),revenue=Math.addExact(current.revenue,payment.amount))
                             val immediate = payment.dueDay <= save.gameDay
-                            val updated = save.copy(history=save.history.mapIndexed { i,f -> if(i==index) revised else f },
+                            val updated = save.copy(accounts=save.accounts.record(payment.amount.toLong()),history=save.history.mapIndexed { i,f -> if(i==index) revised else f },
                                 streamingPayments=save.streamingPayments + if(immediate) emptyList() else listOf(payment),
                                 career=save.career.copy(cash=Math.addExact(save.career.cash,if(immediate) payment.amount else 0)))
                             if(store.write(updated)) save=updated else error="Save failed."
