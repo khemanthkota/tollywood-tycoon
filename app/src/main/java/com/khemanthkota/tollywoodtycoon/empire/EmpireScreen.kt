@@ -43,8 +43,8 @@ private fun encodeSlots(slots: ProductionSlots): JSONArray = JSONArray().apply {
     slots.movies.forEach { slot -> put(JSONObject().put("id",slot.id).put("releaseDay",slot.releaseDay ?: -1).put("production",encodeProduction(slot.production)).put("stage",slot.stage).put("response",slot.response?.name ?: "").put("crafts",JSONObject().apply { slot.crafts.forEach { (k,v) -> put(k.name,v.name) } })) }
 }
 
-private data class Save(val career: Career = Career(seed = kotlin.random.Random.nextInt()), val history: List<FilmResult> = emptyList(), val pending: Production? = null, val owned: List<StudioAsset> = emptyList(), val research: Set<String> = emptySet(), val stage: Int = 0, val response: Response? = null, val crafts: Map<FilmCraft,CraftInvestment> = emptyMap(), val contracts: List<TalentContract> = emptyList(), val loans: List<StudioLoan> = emptyList(), val overdue: Int = 0, val managers: List<StudioManager> = emptyList(), val slots: ProductionSlots = ProductionSlots(), val releaseDay: Int? = null)
-private class CareerStore(context: Context) {
+internal data class Save(val career: Career = Career(seed = kotlin.random.Random.nextInt()), val history: List<FilmResult> = emptyList(), val pending: Production? = null, val owned: List<StudioAsset> = emptyList(), val research: Set<String> = emptySet(), val stage: Int = 0, val response: Response? = null, val crafts: Map<FilmCraft,CraftInvestment> = emptyMap(), val contracts: List<TalentContract> = emptyList(), val loans: List<StudioLoan> = emptyList(), val overdue: Int = 0, val managers: List<StudioManager> = emptyList(), val slots: ProductionSlots = ProductionSlots(), val releaseDay: Int? = null)
+internal class CareerStore(context: Context) {
     private val prefs = context.getSharedPreferences("cinema_empire_v1", Context.MODE_PRIVATE)
     fun load(): Save {
         val raw = prefs.getString("career", null) ?: return Save()
