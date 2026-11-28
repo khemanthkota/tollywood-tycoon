@@ -254,6 +254,11 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (tab == "Studio") {
         Text("Studio command center", style = MaterialTheme.typography.headlineSmall)
+        var showMilestones by remember { mutableStateOf(false) }
+        OutlinedButton(onClick={showMilestones=true}) { Text("Career achievements") }
+        if(showMilestones) AlertDialog(onDismissRequest={showMilestones=false},title={Text("Studio milestones")},text={Column {
+            listOf(1 to "First premiere",5 to "Established producer",10 to "Studio veteran",25 to "Film mogul",50 to "Industry legend",100 to "Cinema empire").forEach { (goal,label) -> Text("$label • ${minOf(c.completed,goal)}/$goal ${if(c.completed>=goal) "✓" else ""}") }
+        }},confirmButton={TextButton(onClick={showMilestones=false}) { Text("Close") }})
         StudioEvents.birthdays(save.gameDay).forEach { Text("Birthday today: ${it.name}") }
         Text("Business arrears: ₹${save.accounts.arrears}L • Last annual tax: ₹${save.accounts.lastTax}L")
         if(StudioEvents.distressed(c.cash,save.accounts.arrears+save.overdue.toLong()) || c.cash<0) {
