@@ -377,6 +377,15 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                                 Text("${deal.offer.buyer} • ₹${deal.offer.guaranteedLakh}L")
                                 Text(if(deal.offer.directStreaming) "Direct OTT • no box office" else "${deal.offer.theatricalWindowDays}-day window • bonus ₹${deal.offer.bonusLakh}L")
                                 if(deal.status == DealStatus.OPEN) {
+                                    if(!deal.offer.directStreaming) Row(Modifier.horizontalScroll(rememberScrollState())) {
+                                        listOf(14,28,56,90).forEach { window ->
+                                            FilterChip(selected=deal.offer.theatricalWindowDays==window,onClick={
+                                                val previous=deal.offer.theatricalWindowDays
+                                                val revised=deal.offer.copy(theatricalWindowDays=window,guaranteedLakh=(deal.offer.guaranteedLakh.toLong()*(150-window)/(150-previous)).toInt())
+                                                persistOffers(offers.mapIndexed { i,old -> if(i==index) old.copy(offer=revised) else old })
+                                            },label={Text("$window days")})
+                                        }
+                                    }
                                     TextButton(onClick = { persistOffers(offers.mapIndexed { i, old -> if(i==index) old.counter(old.offer.guaranteedLakh*120/100,c.credibility) else old }) }) { Text("Counter +20%") }
                                     TextButton(onClick = {
                                         val updated = save.copy(ottDeal = deal.offer)
