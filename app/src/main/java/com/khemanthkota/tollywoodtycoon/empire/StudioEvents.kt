@@ -15,7 +15,8 @@ internal object StudioEvents {
             else (talent.fee.toLong() * rng.nextInt(100,151)/100).coerceAtMost(rival.cash.toLong()/3).toInt()
         } ?: 0
     fun targetDay(rival: RivalStudio, day: Int): Int {
-        val candidates = (day+14..day+42)
+        val cycleStart = day / 28 * 28
+        val candidates = (cycleStart+28..cycleStart+55)
         return candidates.maxByOrNull { d ->
             val f = ReleaseSeasonPlanner.year(d/365,"Telugu",0).forecast(d,"Telugu",60,100)
             f.occupancy*f.availableScreens + kotlin.random.Random(rival.name.hashCode() xor d).nextInt(12)
