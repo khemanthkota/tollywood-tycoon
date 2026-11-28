@@ -171,7 +171,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 val paid = FinanceLedger(available,save.loans,save.overdue).month()
                 FinanceLedger(Math.addExact(business.cash-available,paid.cash),paid.loans,paid.overdue)
             } else finance
-            val updated = save.copy(relationships=relations, gameDay = day, streamingPayments = settlement.remaining, accounts = business.accounts, loans = monthly.loans, overdue = monthly.overdue, career = save.career.copy(cash = monthly.cash))
+            val updated = save.copy(relationships=relations, gameDay = day, streamingPayments = settlement.remaining, accounts = business.accounts, loans = monthly.loans, overdue = monthly.overdue, career = save.career.copy(cash = monthly.cash, rivals = if(BusinessCalendar.monthBoundary(day)) StudioEvents.rivalMonth(save.career.rivals,day,save.career.seed) else save.career.rivals))
             if (store.write(updated)) save = updated else { clockSpeed = 0; error = "Clock save failed." }
         }
     }
