@@ -661,7 +661,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 }
                 offers.filter { it.status==DealStatus.OPEN }.forEach { negotiation ->
                     val offer = negotiation.offer
-                    OutlinedButton(onClick={ reviseOffer(negotiation.counter((offer.guaranteedLakh.toLong()*120/100).coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),save.career.credibility)) }) { Text("Counter +20%: ${offer.buyer}") }
+                    OutlinedButton(onClick={ reviseOffer(PostReleaseStreaming.counter(negotiation,film,save.career.credibility,offers.count { it.status==DealStatus.OPEN }-1,save.gameDay-film.actualReleaseDay)) }) { Text("Counter +20%: ${offer.buyer}") }
                     OutlinedButton(onClick={ reviseOffer(negotiation.copy(status=DealStatus.WALKED_AWAY)) }) { Text("Reject: ${offer.buyer}") }
                     OutlinedButton(onClick = {
                         val current = save.history[index]
