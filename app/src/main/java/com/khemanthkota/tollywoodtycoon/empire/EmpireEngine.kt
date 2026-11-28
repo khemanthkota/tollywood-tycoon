@@ -49,7 +49,7 @@ object EmpireEngine {
         return Production(plan, career.completed >= 2 && random.nextInt(100) < 55, random.nextInt(), capability)
     }
     fun finish(career: Career, production: Production, response: Response? = null, crafts: Map<FilmCraft,CraftInvestment> = emptyMap()): Pair<Career, FilmResult> = finishWithRights(career, production, response, crafts, null)
-    internal fun finishWithRights(career: Career, production: Production, response: Response?, crafts: Map<FilmCraft,CraftInvestment>, rightsBook: RightsBook?): Pair<Career, FilmResult> {
+    internal fun finishWithRights(career: Career, production: Production, response: Response?, crafts: Map<FilmCraft,CraftInvestment>, rightsBook: RightsBook?, forecast: ReleaseForecast? = null): Pair<Career, FilmResult> {
         val p = production.plan
         require(p.budget in p.minimumCost..career.cash)
         require(!production.event || response != null)
@@ -75,7 +75,8 @@ object EmpireEngine {
         val demand = rng.nextInt(65, 136) / 100.0 * genreDemand * market.multiplier(p.genre) * EmpireMastery.multiplier(career.genreHits[p.genre] ?: 0)
         val opening = (30 + p.cast.appeal * 2 + career.audience) * demand
         val surprise = ReleaseSurprises.outcome(production.seed xor 0x5A17, quality)
-        val gross = if (rightsBook?.directStreaming == true) 0 else (opening * (0.8 + 5 * (quality / 100.0) * (quality / 100.0)) * surprise.multiplier).roundToInt()
+        val releaseFactor = forecast?.let { it.occupancy / (.15 + p.cast.appeal * .006) * (it.availableScreens / 100.0).coerceIn(0.0,1.0) } ?: 1.0
+        val gross = if (rightsBook?.directStreaming == true) 0 else (opening * (0.8 + 5 * (quality / 100.0) * (quality / 100.0)) * surprise.multiplier * releaseFactor).roundToInt()
         val rights = rightsBook?.totalRevenue(gross)?.let { Math.toIntExact(it) } ?: (p.cast.appeal * 1.2 + quality * .8).roundToInt()
         val revenue = (gross * .45).roundToInt() + rights
         val result = FilmResult(p.title, quality, gross, rights, revenue, cost, choice?.delay ?: 0)

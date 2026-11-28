@@ -5,9 +5,10 @@ internal data class ProductionSlot(
     val production: Production,
     val stage: Int = 0,
     val response: Response? = null,
-    val crafts: Map<FilmCraft, CraftInvestment> = emptyMap()
+    val crafts: Map<FilmCraft, CraftInvestment> = emptyMap(),
+    val releaseDay: Int? = null
 ) {
-    init { require(id.isNotBlank() && stage in 0..3) }
+    init { require(id.isNotBlank() && stage in 0..3 && (releaseDay == null || releaseDay >= 0)) }
     fun commitment(): ProductionCommitment = ProductionCommitment(
         id, production.plan.budget, EmpireProductionCrafts.assess(crafts).extraCost,
         response?.cost ?: if (production.event) Response.values().minOf { it.cost } else 0
