@@ -152,16 +152,26 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             val settlement = settleStreaming(save.streamingPayments,day)
             val reserved = save.slots.movies.sumOf { it.commitment().total } + (save.pending?.plan?.budget?.toLong() ?: 0L)
             val ownFilm = save.history.any { it.actualReleaseDay >= 0 && day-it.actualReleaseDay in 1..28 && it.gross > 0 }
-            val occupancy = if(ownFilm) 75 else 45 + kotlin.random.Random(save.career.seed xor day).nextInt(35)
+            val forecast = ReleaseSeasonPlanner.year(day/365,"Telugu",0).forecast(day,"Telugu",60,100)
+            val occupancy = StudioEvents.occupancy(forecast.occupancy,ownFilm,forecast.rivals.size)
+            val birthdays = StudioEvents.birthdays(day)
+            var relations = save.relationships
+            var gifts = 0
+            if(save.managers.isNotEmpty()) birthdays.forEach { talent ->
+                if(StudioEvents.managerGift(save.career.cash-gifts,reserved,relations.score(talent.name))) {
+                    gifts += 5
+                    relations = relations.gift(talent.name,5)
+                }
+            }
             val theaterNet = save.theaters.sumOf { t -> t.dailyMargin(day,occupancy,ownFilm) - if(BusinessCalendar.monthBoundary(day) && t.operating(day)) t.acquisition.monthly else 0 }
-            val business = BusinessCalendar.closeDay(day,Math.addExact(Math.addExact(save.career.cash,settlement.received),theaterNet),save.accounts.record(theaterNet.toLong()),save.managers.sumOf { it.salary },reserved)
+            val business = BusinessCalendar.closeDay(day,Math.addExact(Math.addExact(save.career.cash,settlement.received),theaterNet-gifts),save.accounts.record(theaterNet.toLong()),save.managers.sumOf { it.salary },reserved)
             val finance = FinanceLedger(business.cash,save.loans,save.overdue)
             val monthly = if(BusinessCalendar.monthBoundary(day)) {
                 val available = (business.cash.toLong()-reserved).coerceAtLeast(0).toInt()
                 val paid = FinanceLedger(available,save.loans,save.overdue).month()
                 FinanceLedger(Math.addExact(business.cash-available,paid.cash),paid.loans,paid.overdue)
             } else finance
-            val updated = save.copy(gameDay = day, streamingPayments = settlement.remaining, accounts = business.accounts, loans = monthly.loans, overdue = monthly.overdue, career = save.career.copy(cash = monthly.cash))
+            val updated = save.copy(relationships=relations, gameDay = day, streamingPayments = settlement.remaining, accounts = business.accounts, loans = monthly.loans, overdue = monthly.overdue, career = save.career.copy(cash = monthly.cash, rivals = if(BusinessCalendar.monthBoundary(day)) StudioEvents.rivalMonth(save.career.rivals,day,save.career.seed) else save.career.rivals))
             if (store.write(updated)) save = updated else { clockSpeed = 0; error = "Clock save failed." }
         }
     }
@@ -244,6 +254,10 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (tab == "Studio") {
         Text("Studio command center", style = MaterialTheme.typography.headlineSmall)
+        StudioEvents.birthdays(save.gameDay).forEach { Text("Birthday today: ${it.name}") }
+        Text("Business arrears: ₹${save.accounts.arrears}L • Last annual tax: ₹${save.accounts.lastTax}L")
+        if(StudioEvents.distressed(c.cash,save.accounts.arrears)) Text("Financial distress: sell assets or arrange financing.",color=MaterialTheme.colorScheme.error)
+        if(save.managers.isNotEmpty()) Text("Managers automatically send affordable birthday gifts.")
         Card(Modifier.fillMaxWidth()) {
             Canvas(Modifier.fillMaxWidth().height(130.dp)) {
                 val w = size.width
@@ -485,10 +499,16 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         if (tab == "Assets" && (pending != null || save.slots.movies.isNotEmpty())) { Text("Finish or cancel all productions before changing assets.") }
         if (tab == "Assets" && pending == null && save.slots.movies.isEmpty()) {
         Text("Theater business", style = MaterialTheme.typography.titleLarge)
-        save.theaters.forEach { t -> Text("${t.id} • ${t.acquisition.name} • ${if(t.operating(save.gameDay)) "Open" else "Opens day ${t.openingDay}"}") }
+        save.theaters.forEach { t ->
+            Text("${t.id} • ${t.acquisition.name} • ${if(t.operating(save.gameDay)) "Open" else "Opens day ${t.openingDay}"}")
+            OutlinedButton(onClick={
+                val updated=save.copy(theaters=save.theaters.filterNot { it.id==t.id },career=c.copy(cash=Math.addExact(c.cash,StudioEvents.resale(t))))
+                if(store.write(updated)) save=updated else error="Save failed."
+            }) { Text("Sell / exit • ₹${StudioEvents.resale(t)}L") }
+        }
         TheaterAcquisition.values().forEach { mode ->
             OutlinedButton(enabled=c.cash >= mode.upfront,onClick={
-                val theater=StudioTheater("Cinema ${save.theaters.size+1}",mode,save.gameDay+mode.buildDays)
+                val theater=StudioTheater("Cinema ${java.util.UUID.randomUUID().toString().take(8)}",mode,save.gameDay+mode.buildDays)
                 val updated=save.copy(theaters=save.theaters+theater,career=c.copy(cash=c.cash-mode.upfront))
                 if(store.write(updated)) save=updated else error="Save failed."
             }) { Text("${mode.name} theater • ₹${mode.upfront}L") }
@@ -627,7 +647,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 if(store.write(updated)) save=updated else error="Save failed."
             }) { Text("Hire ${department.name} • ₹20L") }
             else Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-                Text("${department.name} • Skill ${manager.skill} • ₹${manager.salary}L/film",modifier=Modifier.weight(1f))
+                Text("${department.name} • Skill ${manager.skill} • ₹${manager.salary}L/month",modifier=Modifier.weight(1f))
                 TextButton(enabled=pending==null && c.cash>=manager.salary*2,onClick={
                     val (trained,cash)=EmpireManagers.train(manager,c.cash)
                     val updated=save.copy(career=c.copy(cash=cash),managers=save.managers.map { if(it.id==manager.id) trained else it })
