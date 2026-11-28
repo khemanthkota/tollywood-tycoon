@@ -289,6 +289,9 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             OutlinedButton(onClick = { audio.cue(); tab = "Assets" }) { Text("Equipment") }
             OutlinedButton(onClick = { audio.cue(); tab = "Market" }) { Text("Industry") }
         }
+        var showNews by remember { mutableStateOf(false) }
+        OutlinedButton(onClick={showNews=true}) { Text("Industry news") }
+        if(showNews) AlertDialog(onDismissRequest={showNews=false},title={Text("Industry news • Day ${save.gameDay+1}")},text={Column(Modifier.verticalScroll(rememberScrollState())) { IndustryNews.headlines(save.gameDay,c,save.history).forEach { Text(it); HorizontalDivider() } }},confirmButton={TextButton(onClick={showNews=false}) { Text("Close") }})
         val last = save.history.lastOrNull()
         if (last != null) {
             Card { Column(Modifier.padding(12.dp)) {
