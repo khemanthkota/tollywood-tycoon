@@ -337,9 +337,38 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         if (p != null) {
             val stages = listOf("Pre-production","Principal photography","Post-production","Premiere")
             val stage = save.stage.coerceIn(0,3)
-            Text(p.plan.title, style = MaterialTheme.typography.headlineSmall)
-            Text("Stage ${stage+1} of 4 • ${stages[stage]}")
-            LinearProgressIndicator(progress = (stage+1)/4f, modifier = Modifier.fillMaxWidth())
+            val duration = listOf(15,45,20,0)[stage]
+            val remaining = (save.stageReadyDay - save.gameDay).coerceIn(0,duration)
+            val elapsed = duration - remaining
+            val fraction = if (duration == 0) 1f else elapsed.toFloat()/duration
+            val overall = (listOf(0,15,60,80)[stage] + elapsed)/80f
+            val palette = listOf(
+                listOf(Color(0xFF392719),Color(0xFF98633D)),
+                listOf(Color(0xFF172C39),Color(0xFF477A85)),
+                listOf(Color(0xFF211D43),Color(0xFF6455A0)),
+                listOf(Color(0xFF460F25),Color(0xFFAC7138))
+            )[stage]
+            Box(Modifier.fillMaxWidth().heightIn(min = 180.dp)) {
+                Canvas(Modifier.matchParentSize()) {
+                    drawRect(brush = androidx.compose.ui.graphics.Brush.verticalGradient(palette))
+                    for (i in 0..5) {
+                        val x = size.width * i / 5f
+                        drawLine(Color.White.copy(alpha = .09f), Offset(x,0f), Offset(size.width/2f,size.height), strokeWidth = 3f)
+                    }
+                }
+                Column(Modifier.padding(16.dp)) {
+                    Text(p.plan.title, style = MaterialTheme.typography.headlineSmall, color = Color.White)
+                    Text("Stage ${stage+1} of 4 • ${stages[stage]}", color = Color.White)
+                    Text("Game day ${save.gameDay} • " + if (remaining > 0) "$remaining days remaining" else "Ready for your decision", color = Color.White)
+                    Text(listOf("Script and casting","On-set filming","Editing and sound","Premiere preparation")[stage], color = Color.White)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Production work: ${(overall*100).toInt()}%", color = Color.White)
+                    LinearProgressIndicator(progress = overall, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    Text("Current stage: ${(fraction*100).toInt()}%", color = Color.White)
+                    LinearProgressIndicator(progress = fraction, modifier = Modifier.fillMaxWidth())
+                }
+            }
             Card { Column(Modifier.padding(16.dp)) {
                 Text(listOf("Finalize cast and production budget.","Shoot the movie on set.","Complete editing and prepare the release.","Release the film and reveal box office results.")[stage])
                 Text("Committed budget: ₹${p.plan.budget} lakh")
