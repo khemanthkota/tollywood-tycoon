@@ -142,7 +142,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     fun finish(p: Production, response: Response? = null) {
         try {
             require(productionFundsAvailable(productionCash, p.plan.budget, monthlyPayroll, EmpireProductionCrafts.assess(save.crafts).extraCost, response?.cost ?: 0) >= 0) { "Insufficient reserved funds for production and payroll." }
-            val (rawNext, rawFilm) = EmpireEngine.finish(c, p, response, save.crafts)
+            val (rawNext, rawFilm) = EmpireEngine.finishWithRights(c, p, response, save.crafts, null, save.releaseDay?.let { day -> ReleaseSeasonPlanner.year(day/365,"Telugu",0).forecast(day,"Telugu",p.plan.cast.appeal,100) })
             val agreement = save.contracts.firstOrNull { it.talent == p.plan.cast.name && it.remainingFilms > 0 && it.expiresDay > c.completed*30 }
             val discount = agreement?.let { (p.plan.cast.fee-it.fee).coerceAtLeast(0) } ?: 0
             val film = rawFilm.copy(cost=rawFilm.cost-discount)
@@ -333,6 +333,14 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         onClick = { advance(response) }) { Text("${response.name} • ₹${response.cost}L • Left ₹${productionFundsAvailable(productionCash,p.plan.budget,payrollReserve,extra,response.cost)}L") }
                 }
             } else if (stage == 3) {
+                val earliest = c.completed * 30
+                val year = earliest / 365
+                val first = ReleaseSeasonPlanner.year(year,"Telugu",0)
+                val second = ReleaseSeasonPlanner.year(year+1,"Telugu",0)
+                ReleaseDatePicker(ReleaseMarketCalendar(first.holidays+second.holidays,first.releases+second.releases),earliest,"Telugu",p.plan.cast.appeal,100,save.releaseDay) { day ->
+                    val updated = save.copy(releaseDay=day)
+                    if (store.write(updated)) save=updated else error="Save failed."
+                }
                 Button(onClick = { finish(p,save.response) }) { Text("Premiere movie") }
             } else {
                 Button(onClick = { advance() }) { Text("Complete ${stages[stage]}") }
