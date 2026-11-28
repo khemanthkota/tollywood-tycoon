@@ -28,7 +28,7 @@ data class Career(val cash: Int = 1000, val completed: Int = 0,
 enum class Response(val cost: Int, val quality: Int, val delay: Int) {
     REPAIR(15, 0, 3), RENT(30, 2, 1), COMPROMISE(0, -9, 0)
 }
-data class Production(val plan: FilmPlan, val event: Boolean, val seed: Int, val capability: CapabilityAssessment? = null)
+data class Production(val plan: FilmPlan, val event: Boolean, val seed: Int, val capability: CapabilityAssessment? = null, val eventLedger: EventLedger = EventLedger())
 data class FilmResult(val title: String, val quality: Int, val gross: Int,
     val rights: Int, val revenue: Int, val cost: Int, val delay: Int, val actualReleaseDay: Int = -1, val ottSold: Boolean = true, val ottRound: Int = -1, val ottNegotiationJson: String = "", val genre: Genre? = null) {
     val profit get() = revenue - cost
