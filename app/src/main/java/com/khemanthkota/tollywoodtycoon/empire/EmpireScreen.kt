@@ -794,6 +794,8 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         save.history.indices.reversed().forEach { index ->
             val film = save.history[index]
             Text("${film.title} • ₹${film.profit} lakh profit/loss")
+            Text("Quality: ${film.quality}/100 • Cost: ₹${film.cost}L • Revenue: ₹${film.revenue}L")
+            Text("OTT/rights: ₹${film.rights}L • ${if (EmpireMastery.isHit(film)) "Hit" else if (film.quality < 60) "Below quality threshold" else "Below hit profit threshold"}")
             if(film.actualReleaseDay >= 0 && !film.ottSold) {
                 val market = PostReleaseStreaming.offers(film,film.actualReleaseDay,save.gameDay,false)
                 val round = (save.gameDay-film.actualReleaseDay-7)/14
