@@ -472,7 +472,9 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             Text("Director")
             Director.values().forEach { d -> FilterChip(director == d, { director = d }, { Text("${d.name} • ₹${d.fee} lakh") }) }
             OutlinedTextField(budget, { budget = it.filter(Char::isDigit).take(8) }, label = { Text("Total budget (lakh)") }, singleLine = true)
-            val minimum = cast.fee + director.fee + 60
+            val rivalBid = StudioEvents.rivalBid(c.rivals,cast,save.gameDay,c.seed)
+            val minimum = maxOf(cast.fee,rivalBid) + director.fee + 60
+            if(rivalBid>cast.fee) Text("Rival talent offer: ₹$rivalBid L • Higher production budget required.")
             val payrollReserve = save.managers.sumOf { it.salary }
             val contingency = Response.values().minOf { it.cost }
             Text("Minimum budget: ₹$minimum lakh")
@@ -501,6 +503,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             }
             c.rivals.sortedByDescending { it.cash }.forEach { s ->
                 Text("${s.name} • ₹${s.cash} lakh • ${s.preferredGenre.name}")
+                Text("Target release: day ${StudioEvents.targetDay(s,save.gameDay)+1}")
             }
             market.rivals.forEach { release -> Text("Upcoming rival release: ${release.studio} • ${release.genre.name}") }
         }
