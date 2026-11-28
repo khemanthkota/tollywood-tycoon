@@ -481,11 +481,18 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 if (store.write(updated)) { save = updated; audio.event("clapper"); error = "" } else error = "Save failed."
             }
             if (stage == 1 && p.event && save.response == null) {
-                Text("Equipment failure • choose a response")
-                Text("Compare the cash remaining after each response before committing.")
-                Response.values().forEach { response ->
-                    Button(enabled = ready && productionFundsAvailable(productionCash, p.plan.budget, payrollReserve, extra, response.cost) >= 0,
-                        onClick = { advance(response) }) { Text("${response.name} • ₹${response.cost}L • Left ₹${productionFundsAvailable(productionCash,p.plan.budget,payrollReserve,extra,response.cost)}L") }
+                if (ready) {
+                    AlertDialog(onDismissRequest = {}, title = { Text("Equipment failure") },
+                        text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+                            Text("Choose a response to continue production.")
+                            Response.values().forEach { response ->
+                                Button(enabled = productionFundsAvailable(productionCash, p.plan.budget, payrollReserve, extra, response.cost) >= 0,
+                                    onClick = { advance(response) }) {
+                                    Text("${response.name} • ₹${response.cost}L • Left ₹${productionFundsAvailable(productionCash,p.plan.budget,payrollReserve,extra,response.cost)}L")
+                                }
+                            }
+                            Text("Your decision is saved and affects the final film.")
+                        } }, confirmButton = {})
                 }
             } else if (stage == 3) {
                 val earliest = save.gameDay
