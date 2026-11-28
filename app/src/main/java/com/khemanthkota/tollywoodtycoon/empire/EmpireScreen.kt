@@ -145,14 +145,28 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         })
     }
     var clockSpeed by remember { mutableStateOf(0) }
-    val incidentPending = save.pending?.event == true && save.stage == 1 && save.response == null && save.gameDay >= save.stageReadyDay
+    val queuedEvent = save.pending?.eventLedger?.pendingId?.let(EmpireEventCatalog::find)
+    LaunchedEffect(save.pending, save.stage, save.gameDay, save.stageReadyDay) {
+        val movie = save.pending ?: return@LaunchedEffect
+        val stage = EventStage.values().getOrNull(save.stage) ?: return@LaunchedEffect
+        if (save.gameDay >= save.stageReadyDay && movie.eventLedger.pendingId == null &&
+            movie.eventLedger.decisions.none { EmpireEventCatalog.find(it.eventId)?.stage == stage }) {
+            val event = EmpireEventCatalog.next(stage, movie.eventLedger, movie.seed, save.gameDay)
+            if (event != null) {
+                val updated = save.copy(pending = movie.copy(eventLedger = movie.eventLedger.queue(event)))
+                if (store.write(updated)) { save = updated; pending = updated.pending; tab = "Produce" }
+                else { clockSpeed = 0; error = "Event save failed." }
+            }
+        }
+    }
+    val incidentPending = queuedEvent != null || (save.pending?.event == true && save.stage == 1 && save.response == null && save.gameDay >= save.stageReadyDay)
     LaunchedEffect(incidentPending) {
         if (incidentPending) tab = "Produce"
     }
     LaunchedEffect(clockSpeed, foreground, incidentPending) {
         while (clockSpeed > 0 && foreground && loaded.isSuccess && !incidentPending) {
             kotlinx.coroutines.delay(4000L / clockSpeed)
-            if (save.pending?.event == true && save.stage == 1 && save.response == null && save.gameDay >= save.stageReadyDay) break
+            if (save.pending?.eventLedger?.pendingId != null || (save.pending?.event == true && save.stage == 1 && save.response == null && save.gameDay >= save.stageReadyDay)) break
             val day = save.gameDay + 1
             val settlement = settleStreaming(save.streamingPayments,day)
             val reserved = save.slots.movies.sumOf { it.commitment().total } + (save.pending?.plan?.budget?.toLong() ?: 0L)
