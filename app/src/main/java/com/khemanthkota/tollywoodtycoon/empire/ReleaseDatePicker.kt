@@ -6,6 +6,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
@@ -27,7 +28,7 @@ internal fun ReleaseDatePicker(calendar: ReleaseMarketCalendar, earliestDay: Int
             Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                 week.forEach { day ->
                     val f = forecasts.getValue(day)
-                    Surface(modifier = Modifier.weight(1f).height(54.dp).clickable { onSelect(day) },
+                    Surface(modifier = Modifier.weight(1f).height(54.dp).testTag(if (day == earliestDay) "earliest-release" else "release-day-$day").clickable { onSelect(day) },
                         shape = MaterialTheme.shapes.small,
                         color = if (day == selectedDay) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant) {
                         Column(Modifier.padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
