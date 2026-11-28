@@ -63,7 +63,7 @@ internal class CareerStore(context: Context) {
         val a = j.getJSONArray("history")
         val history = (0 until a.length()).map {
             val f = a.getJSONObject(it)
-            FilmResult(f.getString("title"), f.getInt("quality"), f.getInt("gross"), f.getInt("rights"), f.getInt("revenue"), f.getInt("cost"), f.getInt("delay"), f.optInt("actualReleaseDay",-1), f.optBoolean("ottSold",true))
+            FilmResult(f.getString("title"), f.getInt("quality"), f.getInt("gross"), f.getInt("rights"), f.getInt("revenue"), f.getInt("cost"), f.getInt("delay"), f.optInt("actualReleaseDay",-1), f.optBoolean("ottSold",true), f.optInt("ottRound",-1), f.optString("ottNegotiationJson",""))
         }
         val rivals = j.optJSONArray("rivals")?.let { arr ->
             (0 until arr.length()).map { i ->
@@ -80,7 +80,7 @@ internal class CareerStore(context: Context) {
         val c = s.career
         val a = JSONArray()
         s.history.forEach { f ->
-            a.put(JSONObject().put("actualReleaseDay",f.actualReleaseDay).put("ottSold",f.ottSold).put("title", f.title).put("quality", f.quality).put("gross", f.gross)
+            a.put(JSONObject().put("actualReleaseDay",f.actualReleaseDay).put("ottSold",f.ottSold).put("ottRound",f.ottRound).put("ottNegotiationJson",f.ottNegotiationJson).put("title", f.title).put("quality", f.quality).put("gross", f.gross)
                 .put("rights", f.rights).put("revenue", f.revenue).put("cost", f.cost).put("delay", f.delay))
         }
         val rivals = JSONArray()
@@ -651,8 +651,18 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             val film = save.history[index]
             Text("${film.title} • ₹${film.profit} lakh profit/loss")
             if(film.actualReleaseDay >= 0 && !film.ottSold) {
-                val offers = PostReleaseStreaming.offers(film,film.actualReleaseDay,save.gameDay,false)
-                offers.forEach { offer ->
+                val market = PostReleaseStreaming.offers(film,film.actualReleaseDay,save.gameDay,false)
+                val round = (save.gameDay-film.actualReleaseDay-7)/14
+                val offers = if(market.isEmpty()) emptyList() else if(film.ottRound==round && film.ottNegotiationJson.isNotEmpty()) decodeNegotiations(JSONArray(film.ottNegotiationJson)) else market.map { RightsNegotiation(it) }
+                fun reviseOffer(updatedOffer: RightsNegotiation) {
+                    val revised = film.copy(ottRound=round,ottNegotiationJson=encodeNegotiations(offers.map { if(it.offer.buyer==updatedOffer.offer.buyer) updatedOffer else it }).toString())
+                    val updated = save.copy(history=save.history.mapIndexed { i,f -> if(i==index) revised else f })
+                    if(store.write(updated)) save=updated else error="Save failed."
+                }
+                offers.filter { it.status==DealStatus.OPEN }.forEach { negotiation ->
+                    val offer = negotiation.offer
+                    OutlinedButton(onClick={ reviseOffer(PostReleaseStreaming.counter(negotiation,film,save.career.credibility,offers.count { it.status==DealStatus.OPEN }-1,save.gameDay-film.actualReleaseDay)) }) { Text("Counter +20%: ${offer.buyer}") }
+                    OutlinedButton(onClick={ reviseOffer(negotiation.copy(status=DealStatus.WALKED_AWAY)) }) { Text("Reject: ${offer.buyer}") }
                     OutlinedButton(onClick = {
                         val current = save.history[index]
                         if(!current.ottSold) {
