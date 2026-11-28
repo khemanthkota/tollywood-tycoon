@@ -63,7 +63,7 @@ internal class CareerStore(context: Context) {
         val a = j.getJSONArray("history")
         val history = (0 until a.length()).map {
             val f = a.getJSONObject(it)
-            FilmResult(f.getString("title"), f.getInt("quality"), f.getInt("gross"), f.getInt("rights"), f.getInt("revenue"), f.getInt("cost"), f.getInt("delay"))
+            FilmResult(f.getString("title"), f.getInt("quality"), f.getInt("gross"), f.getInt("rights"), f.getInt("revenue"), f.getInt("cost"), f.getInt("delay"), f.optInt("actualReleaseDay",-1), f.optBoolean("ottSold",true))
         }
         val rivals = j.optJSONArray("rivals")?.let { arr ->
             (0 until arr.length()).map { i ->
@@ -80,7 +80,7 @@ internal class CareerStore(context: Context) {
         val c = s.career
         val a = JSONArray()
         s.history.forEach { f ->
-            a.put(JSONObject().put("title", f.title).put("quality", f.quality).put("gross", f.gross)
+            a.put(JSONObject().put("actualReleaseDay",f.actualReleaseDay).put("ottSold",f.ottSold).put("title", f.title).put("quality", f.quality).put("gross", f.gross)
                 .put("rights", f.rights).put("revenue", f.revenue).put("cost", f.cost).put("delay", f.delay))
         }
         val rivals = JSONArray()
@@ -162,10 +162,10 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     fun finish(p: Production, response: Response? = null) {
         try {
             require(productionFundsAvailable(productionCash, p.plan.budget, monthlyPayroll, EmpireProductionCrafts.assess(save.crafts).extraCost, response?.cost ?: 0) >= 0) { "Insufficient reserved funds for production and payroll." }
-            val (rawNext, rawFilm) = EmpireEngine.finishWithRights(c, p, response, save.crafts, save.ottDeal?.let { RightsBook().accept(it) }, save.releaseDay?.let { day -> ReleaseSeasonPlanner.year(day/365,"Telugu",0).forecast(day,"Telugu",p.plan.cast.appeal,100) })
+            val (rawNext, rawFilm) = EmpireEngine.finishWithRights(c, p, response, save.crafts, save.ottDeal?.let { RightsBook().accept(it) } ?: RightsBook(), save.releaseDay?.let { day -> ReleaseSeasonPlanner.year(day/365,"Telugu",0).forecast(day,"Telugu",p.plan.cast.appeal,100) })
             val agreement = save.contracts.firstOrNull { it.talent == p.plan.cast.name && it.remainingFilms > 0 && it.expiresDay > c.completed*30 }
             val discount = agreement?.let { (p.plan.cast.fee-it.fee).coerceAtLeast(0) } ?: 0
-            val film = rawFilm.copy(cost=rawFilm.cost-discount)
+            val film = rawFilm.copy(cost=rawFilm.cost-discount, actualReleaseDay=save.gameDay, ottSold=save.ottDeal != null)
             val payment = save.ottDeal?.let { StreamingPayment.from(p.plan.title,it,save.gameDay,film.gross) }?.takeIf { it.dueDay > save.gameDay }
             val next = rawNext.copy(cash=rawNext.cash+discount-(payment?.amount ?: 0))
             val updatedContracts = save.contracts.map { if(it.id==agreement?.id) it.copy(remainingFilms=it.remainingFilms-1) else it }
@@ -647,7 +647,27 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         if(save.streamingPayments.isEmpty()) Text("No outstanding streaming payments")
         save.streamingPayments.sortedBy { it.dueDay }.forEach { Text("${it.film} • ${it.buyer} • ₹${it.amount}L • Day ${it.dueDay}") }
         Text("Studio history", style = MaterialTheme.typography.titleLarge)
-        save.history.asReversed().forEach { Text("${it.title} • ₹${it.profit} lakh profit/loss") }
+        save.history.indices.reversed().forEach { index ->
+            val film = save.history[index]
+            Text("${film.title} • ₹${film.profit} lakh profit/loss")
+            if(film.actualReleaseDay >= 0 && !film.ottSold) {
+                val offers = PostReleaseStreaming.offers(film,film.actualReleaseDay,save.gameDay,false)
+                offers.forEach { offer ->
+                    OutlinedButton(onClick = {
+                        val current = save.history[index]
+                        if(!current.ottSold) {
+                            val payment = PostReleaseStreaming.payment(current,offer,current.actualReleaseDay,save.gameDay)
+                            val revised = current.copy(ottSold=true,rights=Math.addExact(current.rights,payment.amount),revenue=Math.addExact(current.revenue,payment.amount))
+                            val immediate = payment.dueDay <= save.gameDay
+                            val updated = save.copy(history=save.history.mapIndexed { i,f -> if(i==index) revised else f },
+                                streamingPayments=save.streamingPayments + if(immediate) emptyList() else listOf(payment),
+                                career=save.career.copy(cash=Math.addExact(save.career.cash,if(immediate) payment.amount else 0)))
+                            if(store.write(updated)) save=updated else error="Save failed."
+                        }
+                    }) { Text("Sell OTT: ${offer.buyer} • ₹${offer.guaranteedLakh}L") }
+                }
+            }
+        }
         }
         }
         }
