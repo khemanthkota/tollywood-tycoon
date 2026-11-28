@@ -337,6 +337,8 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         if (p != null) {
             val stages = listOf("Pre-production","Principal photography","Post-production","Premiere")
             val stage = save.stage.coerceIn(0,3)
+            val earliestRelease = maxOf(save.gameDay, save.stageReadyDay) + listOf(65,20,0,0)[stage]
+            val forecastRelease = maxOf(earliestRelease, save.releaseDay ?: earliestRelease)
             val duration = listOf(15,45,20,0)[stage]
             val remaining = (save.stageReadyDay - save.gameDay).coerceIn(0,duration)
             val elapsed = duration - remaining
@@ -374,6 +376,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     Text("Production work: ${(overall*100).toInt()}%", color = Color.White)
                     LinearProgressIndicator(progress = overall, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
+                    Text("Estimated release: Year ${2026+forecastRelease/365} • Day ${forecastRelease%365+1}", color = Color.White)
                     Text("Current stage: ${(fraction*100).toInt()}%", color = Color.White)
                     LinearProgressIndicator(progress = fraction, modifier = Modifier.fillMaxWidth())
                 }
