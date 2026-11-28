@@ -199,6 +199,28 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val loanReserve = (c.cash.toLong() - FinanceLedger(c.cash,save.loans,save.overdue).month().cash).coerceAtLeast(0L)
     val otherMovieReserve = save.slots.movies.sumOf { it.commitment().total + monthlyPayroll.toLong() + loanReserve }
     val productionCash = (c.cash.toLong() - loanReserve - otherMovieReserve).coerceIn(0L,Int.MAX_VALUE.toLong()).toInt()
+    if (queuedEvent != null) {
+        val movie = save.pending
+        if (movie != null) {
+            val available = (productionCash.toLong() - movie.plan.budget - movie.eventLedger.totalCost - save.crafts.values.sumOf { it.cost.toLong() }).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+            AlertDialog(onDismissRequest = {}, title = { Text(queuedEvent.title) },
+                text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+                    queuedEvent.choices.forEach { choice ->
+                        Button(enabled = choice.cost <= available, onClick = {
+                            val current = save.pending
+                            if (current != null && current.eventLedger.pendingId == queuedEvent.id) {
+                                val ledger = current.eventLedger.resolve(queuedEvent, choice.id, save.gameDay, available)
+                                val updated = save.copy(pending = current.copy(eventLedger = ledger),
+                                    stageReadyDay = maxOf(save.stageReadyDay, save.gameDay) + choice.delay,
+                                    releaseDay = save.releaseDay?.plus(choice.delay))
+                                if (store.write(updated)) { save = updated; pending = updated.pending; error = "" }
+                                else error = "Decision save failed."
+                            }
+                        }) { Text("${choice.label} • ₹${choice.cost}L • Quality ${choice.quality} • ${choice.delay} days") }
+                    }
+                } }, confirmButton = {})
+        }
+    }
     fun finish(p: Production, response: Response? = null) {
         try {
             require(productionFundsAvailable(productionCash, p.plan.budget, monthlyPayroll, EmpireProductionCrafts.assess(save.crafts).extraCost, response?.cost ?: 0) >= 0) { "Insufficient reserved funds for production and payroll." }
