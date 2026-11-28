@@ -391,6 +391,18 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             Text("Payroll reserve: ₹$payrollReserve lakh • Available: ₹${productionCash-p.plan.budget-extra-payrollReserve-responseReserve} lakh")
             Text("Craft upgrades: ₹$extra lakh")
             val assessment = EmpireProductionCrafts.assess(save.crafts)
+            // Reprice only open negotiations using the change in committed craft investment.
+            fun repriceCraftOffers(choices: Map<FilmCraft,CraftInvestment>): List<RightsNegotiation> {
+                if (save.ottDeal != null) return save.ottOffers
+                val oldCost = EmpireProductionCrafts.assess(save.crafts).extraCost
+                val newCost = EmpireProductionCrafts.assess(choices).extraCost
+                fun factor(cost: Int) = 100 + (cost.toLong()*30 / p.plan.budget.coerceAtLeast(1)).toInt().coerceIn(0,30)
+                return save.ottOffers.map { deal ->
+                    if (deal.status != DealStatus.OPEN) deal else deal.copy(offer=deal.offer.copy(
+                        guaranteedLakh=(deal.offer.guaranteedLakh.toLong()*factor(newCost)/factor(oldCost)).toInt().coerceAtLeast(1)))
+                }
+            }
+
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Production decision review", style = MaterialTheme.typography.titleMedium)
@@ -413,7 +425,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         val report=EmpireManagers.recommend(manager,ManagerPolicy(Delegation.AUTOMATIC,30),available.filter { it !in choices },remaining)
                         choices=choices+report.choices
                     }
-                    val updated=save.copy(crafts=choices)
+                    val updated=save.copy(crafts=choices, ottOffers=repriceCraftOffers(choices))
                     if(store.write(updated)) save=updated else error="Save failed."
                 }) { Text("Apply manager recommendations • max ₹30L each") }
             }
@@ -425,7 +437,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         FilterChip(selected = save.crafts[craft] == investment,
                             enabled = productionFundsAvailable(productionCash, p.plan.budget, payrollReserve, EmpireProductionCrafts.assess(choices).extraCost, responseReserve) >= 0,
                             onClick = {
-                                val updated = save.copy(crafts = choices)
+                                val updated = save.copy(crafts = choices, ottOffers = repriceCraftOffers(choices))
                                 if (store.write(updated)) { save = updated; audio.cue() } else error = "Save failed."
                             }, label = { Text("${investment.name} +₹${investment.cost}") })
                     }
