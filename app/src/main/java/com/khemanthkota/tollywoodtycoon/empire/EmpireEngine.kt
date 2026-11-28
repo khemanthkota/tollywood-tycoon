@@ -30,7 +30,7 @@ enum class Response(val cost: Int, val quality: Int, val delay: Int) {
 }
 data class Production(val plan: FilmPlan, val event: Boolean, val seed: Int, val capability: CapabilityAssessment? = null)
 data class FilmResult(val title: String, val quality: Int, val gross: Int,
-    val rights: Int, val revenue: Int, val cost: Int, val delay: Int) {
+    val rights: Int, val revenue: Int, val cost: Int, val delay: Int, val actualReleaseDay: Int = -1, val ottSold: Boolean = true) {
     val profit get() = revenue - cost
 }
 object EmpireEngine {
