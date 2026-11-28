@@ -28,9 +28,9 @@ data class Career(val cash: Int = 1000, val completed: Int = 0,
 enum class Response(val cost: Int, val quality: Int, val delay: Int) {
     REPAIR(15, 0, 3), RENT(30, 2, 1), COMPROMISE(0, -9, 0)
 }
-data class Production(val plan: FilmPlan, val event: Boolean, val seed: Int, val capability: CapabilityAssessment? = null)
+data class Production(val plan: FilmPlan, val event: Boolean, val seed: Int, val capability: CapabilityAssessment? = null, val eventLedger: EventLedger = EventLedger())
 data class FilmResult(val title: String, val quality: Int, val gross: Int,
-    val rights: Int, val revenue: Int, val cost: Int, val delay: Int, val actualReleaseDay: Int = -1, val ottSold: Boolean = true, val ottRound: Int = -1, val ottNegotiationJson: String = "") {
+    val rights: Int, val revenue: Int, val cost: Int, val delay: Int, val actualReleaseDay: Int = -1, val ottSold: Boolean = true, val ottRound: Int = -1, val ottNegotiationJson: String = "", val genre: Genre? = null) {
     val profit get() = revenue - cost
 }
 object EmpireEngine {
@@ -55,15 +55,16 @@ object EmpireEngine {
         require(!production.event || response != null)
         val choice = if (production.event) response else null
         val assessment = EmpireProductionCrafts.assess(crafts)
-        val cost = p.budget + (choice?.cost ?: 0) + assessment.extraCost
+        val cost = p.budget + (choice?.cost ?: 0) + assessment.extraCost + production.eventLedger.totalCost
         require(cost <= career.cash)
         val rng = Random(production.seed)
         val craft = ((p.budget - p.cast.fee - p.director.fee) / 12).coerceIn(0, 20)
         val baseQuality = (p.cast.skill * .25 + p.director.skill * .45 + craft + rng.nextInt(-12, 13) + (choice?.quality ?: 0)).roundToInt().coerceIn(0, 100)
         val adjustedQuality = (baseQuality + (assessment.quality-70)*.5).roundToInt().coerceIn(0,100)
-        val quality = production.capability?.let {
+        val underlyingQuality = production.capability?.let {
             (adjustedQuality * .65 + it.qualityPotential * .35).roundToInt().coerceIn(0,100)
         } ?: adjustedQuality
+        val quality = (underlyingQuality + production.eventLedger.qualityDelta).coerceIn(0,100)
         val genreDemand = when (p.genre) {
             Genre.ACTION -> 1.15
             Genre.COMEDY -> 1.05
@@ -79,7 +80,7 @@ object EmpireEngine {
         val gross = if (rightsBook?.directStreaming == true) 0 else (opening * (0.8 + 5 * (quality / 100.0) * (quality / 100.0)) * surprise.multiplier * releaseFactor).roundToInt()
         val rights = rightsBook?.totalRevenue(gross)?.let { Math.toIntExact(it) } ?: (p.cast.appeal * 1.2 + quality * .8).roundToInt()
         val revenue = (gross * .45).roundToInt() + rights
-        val result = FilmResult(p.title, quality, gross, rights, revenue, cost, choice?.delay ?: 0)
+        val result = FilmResult(p.title, quality, gross, rights, revenue, cost, (choice?.delay ?: 0) + production.eventLedger.delayDays, genre = p.genre)
         val next = career.copy(cash = career.cash + result.profit, completed = career.completed + 1,
             credibility = (career.credibility + if (result.profit >= 0) 4 else -5).coerceIn(0, 100),
             audience = (career.audience + (quality - 60) / 5).coerceIn(0, 100), seed = rng.nextInt(), rivals = EmpireMarket.settle(career.rivals, market), genreHits = if (EmpireMastery.isHit(result)) career.genreHits + (p.genre to ((career.genreHits[p.genre] ?: 0) + 1)) else career.genreHits)

@@ -23,11 +23,11 @@ internal fun productionFundsAvailable(cash: Int, budget: Int, payroll: Int, craf
     cash.toLong() - budget - payroll - craft - contingency
 
 private fun decodeProduction(p: JSONObject): Production =
-Production(FilmPlan(p.getString("title"), Genre.valueOf(p.getString("genre")), Talent.valueOf(p.getString("cast")), Director.valueOf(p.getString("director")), p.getInt("budget"), p.optString("primary").takeIf { it.isNotEmpty() }?.let { HybridFilm(StoryGenre.valueOf(it),p.optString("secondary").takeIf { it.isNotEmpty() }?.let { g -> StoryGenre.valueOf(g) },scale = ProductionScale.valueOf(p.optString("scale","INDEPENDENT"))) }), p.getBoolean("event"), p.getInt("seed"), p.optInt("potential",-1).takeIf { it >= 0 }?.let { CapabilityAssessment(emptyMap(),emptyMap(),it,0,0,false) })
+Production(FilmPlan(p.getString("title"), Genre.valueOf(p.getString("genre")), Talent.valueOf(p.getString("cast")), Director.valueOf(p.getString("director")), p.getInt("budget"), p.optString("primary").takeIf { it.isNotEmpty() }?.let { HybridFilm(StoryGenre.valueOf(it),p.optString("secondary").takeIf { it.isNotEmpty() }?.let { g -> StoryGenre.valueOf(g) },scale = ProductionScale.valueOf(p.optString("scale","INDEPENDENT"))) }), p.getBoolean("event"), p.getInt("seed"), p.optInt("potential",-1).takeIf { it >= 0 }?.let { CapabilityAssessment(emptyMap(),emptyMap(),it,0,0,false) }, EmpireEventPersistence.decode(p.optJSONObject("eventLedger")))
 
 private fun encodeProduction(p: Production): JSONObject = JSONObject().put("title", p.plan.title).put("genre", p.plan.genre.name)
             .put("cast", p.plan.cast.name).put("director", p.plan.director.name).put("budget", p.plan.budget)
-            .put("event", p.event).put("seed", p.seed).put("primary",p.plan.hybrid?.primary?.name ?: "").put("secondary",p.plan.hybrid?.secondary?.name ?: "").put("scale",p.plan.hybrid?.scale?.name ?: "INDEPENDENT").put("potential",p.capability?.qualityPotential ?: -1)
+            .put("event", p.event).put("seed", p.seed).put("primary",p.plan.hybrid?.primary?.name ?: "").put("secondary",p.plan.hybrid?.secondary?.name ?: "").put("scale",p.plan.hybrid?.scale?.name ?: "INDEPENDENT").put("potential",p.capability?.qualityPotential ?: -1).put("eventLedger",EmpireEventPersistence.encode(p.eventLedger))
 
 private fun encodeOtt(offer: RightsOffer?): Any = offer?.let { JSONObject().put("buyer",it.buyer).put("guarantee",it.guaranteedLakh).put("bonus",it.bonusLakh).put("threshold",it.grossThresholdLakh).put("window",it.theatricalWindowDays).put("direct",it.directStreaming) } ?: JSONObject.NULL
 private fun decodeOtt(j: JSONObject?): RightsOffer? = j?.let { RightsOffer(it.getString("buyer"),RightsCategory.OTT,it.getInt("guarantee"),it.optInt("bonus"),it.optInt("threshold"),it.optInt("window"),it.optBoolean("direct")) }
@@ -63,7 +63,7 @@ internal class CareerStore(context: Context) {
         val a = j.getJSONArray("history")
         val history = (0 until a.length()).map {
             val f = a.getJSONObject(it)
-            FilmResult(f.getString("title"), f.getInt("quality"), f.getInt("gross"), f.getInt("rights"), f.getInt("revenue"), f.getInt("cost"), f.getInt("delay"), f.optInt("actualReleaseDay",-1), f.optBoolean("ottSold",true), f.optInt("ottRound",-1), f.optString("ottNegotiationJson",""))
+            FilmResult(f.getString("title"), f.getInt("quality"), f.getInt("gross"), f.getInt("rights"), f.getInt("revenue"), f.getInt("cost"), f.getInt("delay"), f.optInt("actualReleaseDay",-1), f.optBoolean("ottSold",true), f.optInt("ottRound",-1), f.optString("ottNegotiationJson",""), Genre.values().firstOrNull { it.name == f.optString("genre") })
         }
         val rivals = j.optJSONArray("rivals")?.let { arr ->
             (0 until arr.length()).map { i ->
@@ -80,7 +80,7 @@ internal class CareerStore(context: Context) {
         val c = s.career
         val a = JSONArray()
         s.history.forEach { f ->
-            a.put(JSONObject().put("actualReleaseDay",f.actualReleaseDay).put("ottSold",f.ottSold).put("ottRound",f.ottRound).put("ottNegotiationJson",f.ottNegotiationJson).put("title", f.title).put("quality", f.quality).put("gross", f.gross)
+            a.put(JSONObject().put("genre",f.genre?.name ?: "").put("actualReleaseDay",f.actualReleaseDay).put("ottSold",f.ottSold).put("ottRound",f.ottRound).put("ottNegotiationJson",f.ottNegotiationJson).put("title", f.title).put("quality", f.quality).put("gross", f.gross)
                 .put("rights", f.rights).put("revenue", f.revenue).put("cost", f.cost).put("delay", f.delay))
         }
         val rivals = JSONArray()
@@ -145,12 +145,31 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         })
     }
     var clockSpeed by remember { mutableStateOf(0) }
-    LaunchedEffect(clockSpeed, foreground) {
-        while (clockSpeed > 0 && foreground && loaded.isSuccess) {
+    val queuedEvent = save.pending?.eventLedger?.pendingId?.let(EmpireEventCatalog::find)
+    LaunchedEffect(save.pending, save.stage, save.gameDay, save.stageReadyDay) {
+        val movie = save.pending ?: return@LaunchedEffect
+        val stage = if (save.stage == 3 && movie.eventLedger.decisions.any { EmpireEventCatalog.find(it.eventId)?.stage == EventStage.MARKETING }) EventStage.DISTRIBUTION else EventStage.values().getOrNull(save.stage) ?: return@LaunchedEffect
+        if (save.gameDay >= save.stageReadyDay && movie.eventLedger.pendingId == null &&
+            movie.eventLedger.decisions.none { EmpireEventCatalog.find(it.eventId)?.stage == stage }) {
+            val event = EmpireEventCatalog.next(stage, movie.eventLedger, movie.seed, save.gameDay)
+            if (event != null) {
+                val updated = save.copy(pending = movie.copy(eventLedger = movie.eventLedger.queue(event)))
+                if (store.write(updated)) { save = updated; pending = updated.pending; tab = "Produce" }
+                else { clockSpeed = 0; error = "Event save failed." }
+            }
+        }
+    }
+    val incidentPending = queuedEvent != null || (save.pending?.event == true && save.stage == 1 && save.response == null && save.gameDay >= save.stageReadyDay)
+    LaunchedEffect(incidentPending) {
+        if (incidentPending) tab = "Produce"
+    }
+    LaunchedEffect(clockSpeed, foreground, incidentPending) {
+        while (clockSpeed > 0 && foreground && loaded.isSuccess && !incidentPending) {
             kotlinx.coroutines.delay(4000L / clockSpeed)
+            if (save.pending?.eventLedger?.pendingId != null || (save.pending?.event == true && save.stage == 1 && save.response == null && save.gameDay >= save.stageReadyDay)) break
             val day = save.gameDay + 1
             val settlement = settleStreaming(save.streamingPayments,day)
-            val reserved = save.slots.movies.sumOf { it.commitment().total } + (save.pending?.plan?.budget?.toLong() ?: 0L)
+            val reserved = save.slots.movies.sumOf { it.commitment().total } + (save.pending?.let { it.plan.budget.toLong() + it.eventLedger.totalCost + EmpireProductionCrafts.assess(save.crafts).extraCost + (save.response?.cost ?: 0) } ?: 0L)
             val ownFilm = save.history.any { it.actualReleaseDay >= 0 && day-it.actualReleaseDay in 1..28 && it.gross > 0 }
             val forecast = ReleaseSeasonPlanner.year(day/365,"Telugu",0).forecast(day,"Telugu",60,100)
             val occupancy = StudioEvents.occupancy(forecast.occupancy,ownFilm,forecast.rivals.size)
@@ -180,15 +199,42 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val loanReserve = (c.cash.toLong() - FinanceLedger(c.cash,save.loans,save.overdue).month().cash).coerceAtLeast(0L)
     val otherMovieReserve = save.slots.movies.sumOf { it.commitment().total + monthlyPayroll.toLong() + loanReserve }
     val productionCash = (c.cash.toLong() - loanReserve - otherMovieReserve).coerceIn(0L,Int.MAX_VALUE.toLong()).toInt()
+    if (queuedEvent != null) {
+        val movie = save.pending
+        if (movie != null) {
+            val available = (productionCash.toLong() - movie.plan.budget - movie.eventLedger.totalCost - EmpireProductionCrafts.assess(save.crafts).extraCost.toLong()).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+            AlertDialog(onDismissRequest = {}, title = { Text(queuedEvent.title) },
+                text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+                    queuedEvent.choices.forEach { choice ->
+                        Button(enabled = choice.cost <= available, onClick = {
+                            val current = save.pending
+                            if (current != null && current.eventLedger.pendingId == queuedEvent.id) {
+                                val ledger = current.eventLedger.resolve(queuedEvent, choice.id, save.gameDay, available)
+                                val oldFactor = (100 + current.eventLedger.qualityDelta * 2).coerceIn(50,150)
+                                val newFactor = (100 + ledger.qualityDelta * 2).coerceIn(50,150)
+                                val offers = save.ottOffers.map { deal ->
+                                    if (save.ottDeal != null || deal.status != DealStatus.OPEN) deal else deal.copy(offer = deal.offer.copy(guaranteedLakh = (deal.offer.guaranteedLakh.toLong() * newFactor / oldFactor).coerceIn(1L,Int.MAX_VALUE.toLong()).toInt()))
+                                }
+                                val updated = save.copy(pending = current.copy(eventLedger = ledger), ottOffers = offers,
+                                    stageReadyDay = maxOf(save.stageReadyDay, save.gameDay) + choice.delay,
+                                    releaseDay = save.releaseDay?.plus(choice.delay))
+                                if (store.write(updated)) { save = updated; pending = updated.pending; error = "" }
+                                else error = "Decision save failed."
+                            }
+                        }) { Text("${choice.label} • ₹${choice.cost}L • Quality ${choice.quality} • ${choice.delay} days") }
+                    }
+                } }, confirmButton = {})
+        }
+    }
     fun finish(p: Production, response: Response? = null) {
         try {
-            require(productionFundsAvailable(productionCash, p.plan.budget, monthlyPayroll, EmpireProductionCrafts.assess(save.crafts).extraCost, response?.cost ?: 0) >= 0) { "Insufficient reserved funds for production and payroll." }
+            require(productionFundsAvailable(productionCash, p.plan.budget, monthlyPayroll, EmpireProductionCrafts.assess(save.crafts).extraCost + p.eventLedger.totalCost, response?.cost ?: 0) >= 0) { "Insufficient reserved funds for production and payroll." }
             val (rawNext, rawFilm) = EmpireEngine.finishWithRights(c, p, response, save.crafts, save.ottDeal?.let { RightsBook().accept(it) } ?: RightsBook(), save.releaseDay?.let { day -> ReleaseSeasonPlanner.year(day/365,"Telugu",0).forecast(day,"Telugu",p.plan.cast.appeal,100) })
             val agreement = save.contracts.firstOrNull { it.talent == p.plan.cast.name && it.remainingFilms > 0 && it.expiresDay > save.gameDay }
             val discount = agreement?.let { (p.plan.cast.fee-it.fee).coerceAtLeast(0) } ?: 0
             val film = rawFilm.copy(cost=rawFilm.cost-discount, actualReleaseDay=save.gameDay, ottSold=save.ottDeal != null)
             val payment = save.ottDeal?.let { StreamingPayment.from(p.plan.title,it,save.gameDay,film.gross) }?.takeIf { it.dueDay > save.gameDay }
-            val next = rawNext.copy(cash=rawNext.cash+discount-(payment?.amount ?: 0))
+            val next = rawNext.copy(cash=rawNext.cash+discount-(payment?.amount ?: 0), genreHits = if (EmpireMastery.isHit(film)) c.genreHits + (p.plan.genre to ((c.genreHits[p.plan.genre] ?: 0) + 1)) else c.genreHits)
             val updatedContracts = save.contracts.map { if(it.id==agreement?.id) it.copy(remainingFilms=it.remainingFilms-1) else it }
             val payroll = monthlyPayroll
             val finance = FinanceLedger(next.cash,save.loans,save.overdue)
@@ -337,9 +383,50 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         if (p != null) {
             val stages = listOf("Pre-production","Principal photography","Post-production","Premiere")
             val stage = save.stage.coerceIn(0,3)
-            Text(p.plan.title, style = MaterialTheme.typography.headlineSmall)
-            Text("Stage ${stage+1} of 4 • ${stages[stage]}")
-            LinearProgressIndicator(progress = (stage+1)/4f, modifier = Modifier.fillMaxWidth())
+            val earliestRelease = maxOf(save.gameDay, save.stageReadyDay) + listOf(65,20,0,0)[stage]
+            val forecastRelease = maxOf(earliestRelease, save.releaseDay ?: earliestRelease)
+            val duration = listOf(15,45,20,0)[stage]
+            val remaining = (save.stageReadyDay - save.gameDay).coerceIn(0,duration)
+            val elapsed = duration - remaining
+            val fraction = if (duration == 0) 1f else elapsed.toFloat()/duration
+            val overall = (listOf(0,15,60,80)[stage] + elapsed)/80f
+            val palette = listOf(
+                listOf(Color(0xFF392719),Color(0xFF98633D)),
+                listOf(Color(0xFF172C39),Color(0xFF477A85)),
+                listOf(Color(0xFF211D43),Color(0xFF6455A0)),
+                listOf(Color(0xFF460F25),Color(0xFFAC7138))
+            )[stage]
+            Box(Modifier.fillMaxWidth().heightIn(min = 180.dp)) {
+                Canvas(Modifier.matchParentSize()) {
+                    drawRect(brush = androidx.compose.ui.graphics.Brush.verticalGradient(palette))
+                    for (i in 0..5) {
+                        val x = size.width * i / 5f
+                        drawLine(Color.White.copy(alpha = .09f), Offset(x,0f), Offset(size.width/2f,size.height), strokeWidth = 3f)
+                    }
+                }
+                Column(Modifier.padding(16.dp)) {
+                    Text(p.plan.title, style = MaterialTheme.typography.headlineSmall, color = Color.White)
+                    Text("Stage ${stage+1} of 4 • ${stages[stage]}", color = Color.White)
+                    Text("Game day ${save.gameDay} • " + if (remaining > 0) "$remaining days remaining" else "Ready for your decision", color = Color.White)
+                    val activities = listOf(
+                        listOf("Script development","Casting discussions","Location scouting","Crew and schedule preparation"),
+                        listOf("Set preparation","Principal photography","Action and dialogue scenes","Final scenes and pickups"),
+                        listOf("Rough cut editing","Visual effects and sound design","Music and color grading","Final mastering"),
+                        listOf("Premiere preparation")
+                    )[stage]
+                    val activityIndex = (fraction * activities.size).toInt().coerceIn(0, activities.lastIndex)
+                    Text("Now: ${activities[activityIndex]}", color = Color.White)
+                    if (remaining > 0) Text("Stage ready on game day ${save.stageReadyDay}", color = Color.White)
+                    else Text("Your next production decision is available", color = Color.White)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Production work: ${(overall*100).toInt()}%", color = Color.White)
+                    LinearProgressIndicator(progress = overall, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    Text("Estimated release: Year ${2026+forecastRelease/365} • Day ${forecastRelease%365+1}", color = Color.White)
+                    Text("Current stage: ${(fraction*100).toInt()}%", color = Color.White)
+                    LinearProgressIndicator(progress = fraction, modifier = Modifier.fillMaxWidth())
+                }
+            }
             Card { Column(Modifier.padding(16.dp)) {
                 Text(listOf("Finalize cast and production budget.","Shoot the movie on set.","Complete editing and prepare the release.","Release the film and reveal box office results.")[stage])
                 Text("Committed budget: ₹${p.plan.budget} lakh")
@@ -350,6 +437,18 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             Text("Payroll reserve: ₹$payrollReserve lakh • Available: ₹${productionCash-p.plan.budget-extra-payrollReserve-responseReserve} lakh")
             Text("Craft upgrades: ₹$extra lakh")
             val assessment = EmpireProductionCrafts.assess(save.crafts)
+            // Reprice only open negotiations using the change in committed craft investment.
+            fun repriceCraftOffers(choices: Map<FilmCraft,CraftInvestment>): List<RightsNegotiation> {
+                if (save.ottDeal != null) return save.ottOffers
+                val oldCost = EmpireProductionCrafts.assess(save.crafts).extraCost
+                val newCost = EmpireProductionCrafts.assess(choices).extraCost
+                fun factor(cost: Int) = 100 + (cost.toLong()*30 / p.plan.budget.coerceAtLeast(1)).toInt().coerceIn(0,30)
+                return save.ottOffers.map { deal ->
+                    if (deal.status != DealStatus.OPEN) deal else deal.copy(offer=deal.offer.copy(
+                        guaranteedLakh=(deal.offer.guaranteedLakh.toLong()*factor(newCost)/factor(oldCost)).toInt().coerceAtLeast(1)))
+                }
+            }
+
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Production decision review", style = MaterialTheme.typography.titleMedium)
@@ -372,7 +471,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         val report=EmpireManagers.recommend(manager,ManagerPolicy(Delegation.AUTOMATIC,30),available.filter { it !in choices },remaining)
                         choices=choices+report.choices
                     }
-                    val updated=save.copy(crafts=choices)
+                    val updated=save.copy(crafts=choices, ottOffers=repriceCraftOffers(choices))
                     if(store.write(updated)) save=updated else error="Save failed."
                 }) { Text("Apply manager recommendations • max ₹30L each") }
             }
@@ -384,7 +483,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         FilterChip(selected = save.crafts[craft] == investment,
                             enabled = productionFundsAvailable(productionCash, p.plan.budget, payrollReserve, EmpireProductionCrafts.assess(choices).extraCost, responseReserve) >= 0,
                             onClick = {
-                                val updated = save.copy(crafts = choices)
+                                val updated = save.copy(crafts = choices, ottOffers = repriceCraftOffers(choices))
                                 if (store.write(updated)) { save = updated; audio.cue() } else error = "Save failed."
                             }, label = { Text("${investment.name} +₹${investment.cost}") })
                     }
@@ -440,11 +539,18 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 if (store.write(updated)) { save = updated; audio.event("clapper"); error = "" } else error = "Save failed."
             }
             if (stage == 1 && p.event && save.response == null) {
-                Text("Equipment failure • choose a response")
-                Text("Compare the cash remaining after each response before committing.")
-                Response.values().forEach { response ->
-                    Button(enabled = ready && productionFundsAvailable(productionCash, p.plan.budget, payrollReserve, extra, response.cost) >= 0,
-                        onClick = { advance(response) }) { Text("${response.name} • ₹${response.cost}L • Left ₹${productionFundsAvailable(productionCash,p.plan.budget,payrollReserve,extra,response.cost)}L") }
+                if (ready) {
+                    AlertDialog(onDismissRequest = {}, title = { Text("Equipment failure") },
+                        text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+                            Text("Choose a response to continue production.")
+                            Response.values().forEach { response ->
+                                Button(enabled = productionFundsAvailable(productionCash, p.plan.budget, payrollReserve, extra, response.cost) >= 0,
+                                    onClick = { advance(response) }) {
+                                    Text("${response.name} • ₹${response.cost}L • Left ₹${productionFundsAvailable(productionCash,p.plan.budget,payrollReserve,extra,response.cost)}L")
+                                }
+                            }
+                            Text("Your decision is saved and affects the final film.")
+                        } }, confirmButton = {})
                 }
             } else if (stage == 3) {
                 val earliest = save.gameDay
@@ -455,7 +561,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     val updated = save.copy(releaseDay=day)
                     if (store.write(updated)) save=updated else error="Save failed."
                 }
-                Button(enabled = save.releaseDay?.let { it <= save.gameDay } == true, onClick = { finish(p,save.response) }) { Text(if(save.ottDeal?.directStreaming == true) "Release on OTT" else "Premiere movie") }
+                Button(enabled = save.releaseDay?.let { it <= save.gameDay } == true && ready && p.eventLedger.pendingId == null && p.eventLedger.decisions.any { EmpireEventCatalog.find(it.eventId)?.stage == EventStage.DISTRIBUTION }, onClick = { finish(p,save.response) }) { Text(if(save.ottDeal?.directStreaming == true) "Release on OTT" else "Premiere movie") }
             } else {
                 Button(enabled = ready, onClick = { advance() }) { Text("Complete ${stages[stage]}") }
             }
@@ -729,6 +835,8 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         save.history.indices.reversed().forEach { index ->
             val film = save.history[index]
             Text("${film.title} • ₹${film.profit} lakh profit/loss")
+            Text("Quality: ${film.quality}/100 • Cost: ₹${film.cost}L • Revenue: ₹${film.revenue}L")
+            Text("OTT/rights: ₹${film.rights}L • ${if (EmpireMastery.isHit(film)) "Hit" else if (film.quality < 60) "Below quality threshold" else "Below hit profit threshold"}")
             if(film.actualReleaseDay >= 0 && !film.ottSold) {
                 val market = PostReleaseStreaming.offers(film,film.actualReleaseDay,save.gameDay,false)
                 val round = (save.gameDay-film.actualReleaseDay-7)/14
@@ -750,7 +858,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                             val immediate = payment.dueDay <= save.gameDay
                             val updated = save.copy(accounts=save.accounts.record(payment.amount.toLong()),history=save.history.mapIndexed { i,f -> if(i==index) revised else f },
                                 streamingPayments=save.streamingPayments + if(immediate) emptyList() else listOf(payment),
-                                career=save.career.copy(cash=Math.addExact(save.career.cash,if(immediate) payment.amount else 0)))
+                                career=save.career.copy(cash=Math.addExact(save.career.cash,if(immediate) payment.amount else 0), genreHits = current.genre?.let { genre -> if (!EmpireMastery.isHit(current) && EmpireMastery.isHit(revised)) save.career.genreHits + (genre to ((save.career.genreHits[genre] ?: 0) + 1)) else save.career.genreHits } ?: save.career.genreHits))
                             if(store.write(updated)) save=updated else error="Save failed."
                         }
                     }) { Text("Sell OTT: ${offer.buyer} • ₹${offer.guaranteedLakh}L") }

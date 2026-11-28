@@ -30,14 +30,32 @@ class EmpireGameplayTest {
             compose.onNodeWithText("Complete Pre-production").performScrollTo().assertIsNotEnabled()
             compose.onNodeWithText("10×").performClick()
             fun awaitDay(day: Int) {
-                compose.waitUntil(timeoutMillis = 90000) { CareerStore(context).load().gameDay >= day }
+                compose.waitUntil(timeoutMillis = 120000) {
+                    val state = CareerStore(context).load()
+                    val movie = state.pending
+                    val event = movie?.eventLedger?.pendingId?.let(EmpireEventCatalog::find)
+                    if (event != null) {
+                        val choice = event.choices.minByOrNull { it.cost }!!
+                        val node = compose.onAllNodesWithText(choice.label, substring = true)
+                        if (node.fetchSemanticsNodes().size == 1) node[0].performClick()
+                        false
+                    } else if (state.stage == 1 && movie?.event == true && state.response == null && state.gameDay >= state.stageReadyDay) {
+                        val node = compose.onAllNodesWithText("COMPROMISE •", substring = true)
+                        if (node.fetchSemanticsNodes().size == 1) node[0].performClick()
+                        false
+                    } else {
+                        state.gameDay >= maxOf(day, state.stageReadyDay)
+                    }
+                }
+                compose.waitForIdle()
             }
             awaitDay(CareerStore(context).load().stageReadyDay)
             tap("Complete Pre-production")
             awaitDay(CareerStore(context).load().stageReadyDay)
-            tap("Complete Principal photography")
+            if (CareerStore(context).load().stage == 1) tap("Complete Principal photography")
             awaitDay(CareerStore(context).load().stageReadyDay)
             tap("Complete Post-production")
+            awaitDay(CareerStore(context).load().stageReadyDay)
             compose.onNodeWithText("Pause").performClick()
             compose.onNodeWithTag("earliest-release").performScrollTo().performClick()
             compose.waitForIdle()
@@ -72,14 +90,32 @@ class EmpireGameplayTest {
             compose.onNodeWithText("Complete Pre-production").performScrollTo().assertIsNotEnabled()
             compose.onNodeWithText("10×").performClick()
             fun awaitDay(day: Int) {
-                compose.waitUntil(timeoutMillis = 90000) { CareerStore(context).load().gameDay >= day }
+                compose.waitUntil(timeoutMillis = 120000) {
+                    val state = CareerStore(context).load()
+                    val movie = state.pending
+                    val event = movie?.eventLedger?.pendingId?.let(EmpireEventCatalog::find)
+                    if (event != null) {
+                        val choice = event.choices.minByOrNull { it.cost }!!
+                        val node = compose.onAllNodesWithText(choice.label, substring = true)
+                        if (node.fetchSemanticsNodes().size == 1) node[0].performClick()
+                        false
+                    } else if (state.stage == 1 && movie?.event == true && state.response == null && state.gameDay >= state.stageReadyDay) {
+                        val node = compose.onAllNodesWithText("COMPROMISE •", substring = true)
+                        if (node.fetchSemanticsNodes().size == 1) node[0].performClick()
+                        false
+                    } else {
+                        state.gameDay >= maxOf(day, state.stageReadyDay)
+                    }
+                }
+                compose.waitForIdle()
             }
             awaitDay(CareerStore(context).load().stageReadyDay)
             tap("Complete Pre-production")
             awaitDay(CareerStore(context).load().stageReadyDay)
-            tap("Complete Principal photography")
+            if (CareerStore(context).load().stage == 1) tap("Complete Principal photography")
             awaitDay(CareerStore(context).load().stageReadyDay)
             tap("Complete Post-production")
+            awaitDay(CareerStore(context).load().stageReadyDay)
             compose.onNodeWithText("Pause").performClick()
             compose.onNodeWithTag("earliest-release").performScrollTo().performClick()
             compose.waitForIdle()
