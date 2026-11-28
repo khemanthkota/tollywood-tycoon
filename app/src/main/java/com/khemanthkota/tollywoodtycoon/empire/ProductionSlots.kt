@@ -8,7 +8,8 @@ internal data class ProductionSlot(
     val crafts: Map<FilmCraft, CraftInvestment> = emptyMap(),
     val releaseDay: Int? = null,
     val stageReadyDay: Int = 0,
-    val ottDeal: RightsOffer? = null
+    val ottDeal: RightsOffer? = null,
+    val ottOffers: List<RightsNegotiation> = emptyList()
 ) {
     init { require(stageReadyDay >= 0 && id.isNotBlank() && stage in 0..3 && (releaseDay == null || releaseDay >= 0)) }
     fun commitment(): ProductionCommitment = ProductionCommitment(
