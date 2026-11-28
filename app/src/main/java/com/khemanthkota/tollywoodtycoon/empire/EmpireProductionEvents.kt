@@ -38,3 +38,21 @@ object EmpireEventCatalog {
         return candidates[kotlin.random.Random(seed xor day).nextInt(candidates.size)]
     }
 }
+
+object EmpireEventFrequency {
+    fun target(stage: EventStage, budget: Int, seed: Int): Int {
+        val tier = when { budget < 300 -> 0; budget < 700 -> 1; else -> 2 }
+        val ranges = when (stage) {
+            EventStage.PREPRODUCTION, EventStage.POSTPRODUCTION -> listOf(1..2, 2..4, 3..6)
+            EventStage.SHOOTING -> listOf(2..4, 4..7, 6..12)
+            EventStage.MARKETING, EventStage.DISTRIBUTION -> listOf(1..2, 2..3, 3..5)
+        }
+        val rng = kotlin.random.Random(seed xor (stage.ordinal * 7919))
+        val range = ranges[tier]
+        return if (rng.nextInt(20) == 0) 0 else rng.nextInt(range.first, range.last + 1)
+    }
+    fun remaining(stage: EventStage, ledger: EventLedger, budget: Int, seed: Int): Int =
+        (target(stage, budget, seed) - ledger.decisions.count {
+            EmpireEventCatalog.find(it.eventId)?.stage == stage
+        }).coerceAtLeast(0)
+}
