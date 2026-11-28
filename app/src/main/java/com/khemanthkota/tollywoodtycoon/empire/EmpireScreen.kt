@@ -202,7 +202,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     if (queuedEvent != null) {
         val movie = save.pending
         if (movie != null) {
-            val available = (productionCash.toLong() - movie.plan.budget - movie.eventLedger.totalCost - save.crafts.values.sumOf { it.cost.toLong() }).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+            val available = (productionCash.toLong() - movie.plan.budget - movie.eventLedger.totalCost - EmpireProductionCrafts.assess(save.crafts).extraCost.toLong()).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
             AlertDialog(onDismissRequest = {}, title = { Text(queuedEvent.title) },
                 text = { Column(Modifier.verticalScroll(rememberScrollState())) {
                     queuedEvent.choices.forEach { choice ->
@@ -223,7 +223,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     }
     fun finish(p: Production, response: Response? = null) {
         try {
-            require(productionFundsAvailable(productionCash, p.plan.budget, monthlyPayroll, EmpireProductionCrafts.assess(save.crafts).extraCost, response?.cost ?: 0) >= 0) { "Insufficient reserved funds for production and payroll." }
+            require(productionFundsAvailable(productionCash, p.plan.budget, monthlyPayroll, EmpireProductionCrafts.assess(save.crafts).extraCost + p.eventLedger.totalCost, response?.cost ?: 0) >= 0) { "Insufficient reserved funds for production and payroll." }
             val (rawNext, rawFilm) = EmpireEngine.finishWithRights(c, p, response, save.crafts, save.ottDeal?.let { RightsBook().accept(it) } ?: RightsBook(), save.releaseDay?.let { day -> ReleaseSeasonPlanner.year(day/365,"Telugu",0).forecast(day,"Telugu",p.plan.cast.appeal,100) })
             val agreement = save.contracts.firstOrNull { it.talent == p.plan.cast.name && it.remainingFilms > 0 && it.expiresDay > save.gameDay }
             val discount = agreement?.let { (p.plan.cast.fee-it.fee).coerceAtLeast(0) } ?: 0
