@@ -148,7 +148,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val queuedEvent = save.pending?.eventLedger?.pendingId?.let(EmpireEventCatalog::find)
     LaunchedEffect(save.pending, save.stage, save.gameDay, save.stageReadyDay) {
         val movie = save.pending ?: return@LaunchedEffect
-        val stage = EventStage.values().getOrNull(save.stage) ?: return@LaunchedEffect
+        val stage = if (save.stage == 3 && movie.eventLedger.decisions.any { EmpireEventCatalog.find(it.eventId)?.stage == EventStage.MARKETING }) EventStage.DISTRIBUTION else EventStage.values().getOrNull(save.stage) ?: return@LaunchedEffect
         if (save.gameDay >= save.stageReadyDay && movie.eventLedger.pendingId == null &&
             movie.eventLedger.decisions.none { EmpireEventCatalog.find(it.eventId)?.stage == stage }) {
             val event = EmpireEventCatalog.next(stage, movie.eventLedger, movie.seed, save.gameDay)
@@ -169,7 +169,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             if (save.pending?.eventLedger?.pendingId != null || (save.pending?.event == true && save.stage == 1 && save.response == null && save.gameDay >= save.stageReadyDay)) break
             val day = save.gameDay + 1
             val settlement = settleStreaming(save.streamingPayments,day)
-            val reserved = save.slots.movies.sumOf { it.commitment().total } + (save.pending?.plan?.budget?.toLong() ?: 0L)
+            val reserved = save.slots.movies.sumOf { it.commitment().total } + (save.pending?.let { it.plan.budget.toLong() + it.eventLedger.totalCost + EmpireProductionCrafts.assess(save.crafts).extraCost + (save.response?.cost ?: 0) } ?: 0L)
             val ownFilm = save.history.any { it.actualReleaseDay >= 0 && day-it.actualReleaseDay in 1..28 && it.gross > 0 }
             val forecast = ReleaseSeasonPlanner.year(day/365,"Telugu",0).forecast(day,"Telugu",60,100)
             val occupancy = StudioEvents.occupancy(forecast.occupancy,ownFilm,forecast.rivals.size)
@@ -210,7 +210,12 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                             val current = save.pending
                             if (current != null && current.eventLedger.pendingId == queuedEvent.id) {
                                 val ledger = current.eventLedger.resolve(queuedEvent, choice.id, save.gameDay, available)
-                                val updated = save.copy(pending = current.copy(eventLedger = ledger),
+                                val oldFactor = (100 + current.eventLedger.qualityDelta * 2).coerceIn(50,150)
+                                val newFactor = (100 + ledger.qualityDelta * 2).coerceIn(50,150)
+                                val offers = save.ottOffers.map { deal ->
+                                    if (save.ottDeal != null || deal.status != DealStatus.OPEN) deal else deal.copy(offer = deal.offer.copy(guaranteedLakh = (deal.offer.guaranteedLakh.toLong() * newFactor / oldFactor).coerceIn(1L,Int.MAX_VALUE.toLong()).toInt()))
+                                }
+                                val updated = save.copy(pending = current.copy(eventLedger = ledger), ottOffers = offers,
                                     stageReadyDay = maxOf(save.stageReadyDay, save.gameDay) + choice.delay,
                                     releaseDay = save.releaseDay?.plus(choice.delay))
                                 if (store.write(updated)) { save = updated; pending = updated.pending; error = "" }
@@ -556,7 +561,7 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     val updated = save.copy(releaseDay=day)
                     if (store.write(updated)) save=updated else error="Save failed."
                 }
-                Button(enabled = save.releaseDay?.let { it <= save.gameDay } == true, onClick = { finish(p,save.response) }) { Text(if(save.ottDeal?.directStreaming == true) "Release on OTT" else "Premiere movie") }
+                Button(enabled = save.releaseDay?.let { it <= save.gameDay } == true && ready && p.eventLedger.pendingId == null && p.eventLedger.decisions.any { EmpireEventCatalog.find(it.eventId)?.stage == EventStage.DISTRIBUTION }, onClick = { finish(p,save.response) }) { Text(if(save.ottDeal?.directStreaming == true) "Release on OTT" else "Premiere movie") }
             } else {
                 Button(enabled = ready, onClick = { advance() }) { Text("Complete ${stages[stage]}") }
             }
