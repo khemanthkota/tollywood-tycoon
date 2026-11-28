@@ -54,4 +54,52 @@ class EmpireGameplayTest {
             editor.commit()
         }
     }
+
+    @Test fun parkedMovieRetainsSchedule() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val prefs = context.getSharedPreferences("cinema_empire_v1", 0)
+        val original = prefs.getString("career", null)
+        try {
+            assertTrue(CareerStore(context).write(Save(career = Career(seed = 42))))
+            compose.setContent { androidx.compose.material3.MaterialTheme { EmpireScreen(onBack = {}) } }
+            fun tap(label: String) {
+                compose.onNodeWithText(label).performScrollTo().performClick()
+                compose.waitForIdle()
+            }
+            tap("Start / resume production")
+            compose.onNodeWithText("Movie title").performScrollTo().performTextInput("Smoke Test Film")
+            tap("Greenlight movie")
+            compose.onNodeWithText("Complete Pre-production").performScrollTo().assertIsNotEnabled()
+            compose.onNodeWithText("10×").performClick()
+            fun awaitDay(day: Int) {
+                compose.waitUntil(timeoutMillis = 90000) { CareerStore(context).load().gameDay >= day }
+            }
+            awaitDay(CareerStore(context).load().stageReadyDay)
+            tap("Complete Pre-production")
+            awaitDay(CareerStore(context).load().stageReadyDay)
+            tap("Complete Principal photography")
+            awaitDay(CareerStore(context).load().stageReadyDay)
+            tap("Complete Post-production")
+            compose.onNodeWithText("Pause").performClick()
+            compose.onNodeWithTag("earliest-release").performScrollTo().performClick()
+            compose.waitForIdle()
+            assertNotNull(CareerStore(context).load().releaseDay)
+            val beforePark = CareerStore(context).load()
+            tap("Park movie / start another")
+            val parked = CareerStore(context).load().slots.movies.single()
+            assertEquals(beforePark.stageReadyDay, parked.stageReadyDay)
+            assertEquals(beforePark.releaseDay, parked.releaseDay)
+            assertEquals(beforePark.stage, parked.stage)
+            assertEquals("Smoke Test Film", parked.production.plan.title)
+            assertNull(CareerStore(context).load().pending)
+            compose.waitForIdle()
+            val saved = CareerStore(context).load()
+            assertEquals(0, saved.career.completed)
+            assertNull(saved.pending)
+        } finally {
+            val editor = prefs.edit()
+            if (original == null) editor.remove("career") else editor.putString("career", original)
+            editor.commit()
+        }
+    }
 }
