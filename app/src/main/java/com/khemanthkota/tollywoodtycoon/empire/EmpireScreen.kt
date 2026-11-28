@@ -360,7 +360,16 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     Text(p.plan.title, style = MaterialTheme.typography.headlineSmall, color = Color.White)
                     Text("Stage ${stage+1} of 4 • ${stages[stage]}", color = Color.White)
                     Text("Game day ${save.gameDay} • " + if (remaining > 0) "$remaining days remaining" else "Ready for your decision", color = Color.White)
-                    Text(listOf("Script and casting","On-set filming","Editing and sound","Premiere preparation")[stage], color = Color.White)
+                    val activities = listOf(
+                        listOf("Script development","Casting discussions","Location scouting","Crew and schedule preparation"),
+                        listOf("Set preparation","Principal photography","Action and dialogue scenes","Final scenes and pickups"),
+                        listOf("Rough cut editing","Visual effects and sound design","Music and color grading","Final mastering"),
+                        listOf("Premiere preparation")
+                    )[stage]
+                    val activityIndex = (fraction * activities.size).toInt().coerceIn(0, activities.lastIndex)
+                    Text("Now: ${activities[activityIndex]}", color = Color.White)
+                    if (remaining > 0) Text("Stage ready on game day ${save.stageReadyDay}", color = Color.White)
+                    else Text("Your next production decision is available", color = Color.White)
                     Spacer(Modifier.height(8.dp))
                     Text("Production work: ${(overall*100).toInt()}%", color = Color.White)
                     LinearProgressIndicator(progress = overall, modifier = Modifier.fillMaxWidth())
