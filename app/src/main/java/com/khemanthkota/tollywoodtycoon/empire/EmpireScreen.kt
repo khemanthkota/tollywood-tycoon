@@ -34,13 +34,13 @@ private fun decodeSlots(j: JSONObject): ProductionSlots {
     val movies = (0 until arr.length()).map { i ->
         val x = arr.getJSONObject(i)
         val crafts = FilmCraft.values().mapNotNull { craft -> x.optJSONObject("crafts")?.optString(craft.name)?.takeIf { it.isNotEmpty() }?.let { craft to CraftInvestment.valueOf(it) } }.toMap()
-        ProductionSlot(x.getString("id"), decodeProduction(x.getJSONObject("production")), x.getInt("stage"), x.optString("response").takeIf { it.isNotEmpty() }?.let { Response.valueOf(it) }, crafts, x.optInt("releaseDay",-1).takeIf { it >= 0 })
+        ProductionSlot(x.getString("id"), decodeProduction(x.getJSONObject("production")), x.getInt("stage"), x.optString("response").takeIf { it.isNotEmpty() }?.let { Response.valueOf(it) }, crafts, x.optInt("releaseDay",-1).takeIf { it >= 0 }, x.optInt("stageReadyDay",0))
     }
     return ProductionSlots(movies, j.optString("selectedMovie").takeIf { it.isNotEmpty() })
 }
 
 private fun encodeSlots(slots: ProductionSlots): JSONArray = JSONArray().apply {
-    slots.movies.forEach { slot -> put(JSONObject().put("id",slot.id).put("releaseDay",slot.releaseDay ?: -1).put("production",encodeProduction(slot.production)).put("stage",slot.stage).put("response",slot.response?.name ?: "").put("crafts",JSONObject().apply { slot.crafts.forEach { (k,v) -> put(k.name,v.name) } })) }
+    slots.movies.forEach { slot -> put(JSONObject().put("id",slot.id).put("stageReadyDay",slot.stageReadyDay).put("releaseDay",slot.releaseDay ?: -1).put("production",encodeProduction(slot.production)).put("stage",slot.stage).put("response",slot.response?.name ?: "").put("crafts",JSONObject().apply { slot.crafts.forEach { (k,v) -> put(k.name,v.name) } })) }
 }
 
 internal data class Save(val career: Career = Career(seed = kotlin.random.Random.nextInt()), val history: List<FilmResult> = emptyList(), val pending: Production? = null, val owned: List<StudioAsset> = emptyList(), val research: Set<String> = emptySet(), val stage: Int = 0, val response: Response? = null, val crafts: Map<FilmCraft,CraftInvestment> = emptyMap(), val contracts: List<TalentContract> = emptyList(), val loans: List<StudioLoan> = emptyList(), val overdue: Int = 0, val managers: List<StudioManager> = emptyList(), val slots: ProductionSlots = ProductionSlots(), val releaseDay: Int? = null, val gameDay: Int = 0, val stageReadyDay: Int = 0)
@@ -259,18 +259,18 @@ fun EmpireScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             if (pending != null) {
                 OutlinedButton(onClick = {
                     val current = pending ?: return@OutlinedButton
-                    val slot = ProductionSlot(java.util.UUID.randomUUID().toString(), current, save.stage, save.response, save.crafts, save.releaseDay)
+                    val slot = ProductionSlot(java.util.UUID.randomUUID().toString(), current, save.stage, save.response, save.crafts, save.releaseDay, save.stageReadyDay)
                     val parked = ProductionSlots(save.slots.movies + slot)
                     val updated = save.copy(slots = parked, pending = null, stage = 0, response = null, crafts = emptyMap(), releaseDay = null)
                     if (store.write(updated)) { save = updated; pending = null; title = ""; error = "" } else error = "Save failed."
-                }, enabled = false) { Text("Parallel scheduling coming soon") }
+                }) { Text("Park movie / start another") }
             }
             save.slots.movies.forEach { slot ->
                 OutlinedButton(onClick = {
                     val current = pending
                     val remaining = save.slots.movies.filterNot { it.id == slot.id }
-                    val parked = if (current == null) remaining else remaining + ProductionSlot(java.util.UUID.randomUUID().toString(), current, save.stage, save.response, save.crafts, save.releaseDay)
-                    val updated = save.copy(slots = ProductionSlots(parked), pending = slot.production, stage = slot.stage, response = slot.response, crafts = slot.crafts, releaseDay = slot.releaseDay)
+                    val parked = if (current == null) remaining else remaining + ProductionSlot(java.util.UUID.randomUUID().toString(), current, save.stage, save.response, save.crafts, save.releaseDay, save.stageReadyDay)
+                    val updated = save.copy(slots = ProductionSlots(parked), pending = slot.production, stage = slot.stage, response = slot.response, crafts = slot.crafts, releaseDay = slot.releaseDay, stageReadyDay = slot.stageReadyDay)
                     if (store.write(updated)) { save = updated; pending = slot.production; error = "" } else error = "Save failed."
                 }) { Text("Resume ${slot.production.plan.title} • Stage ${slot.stage + 1}") }
             }
